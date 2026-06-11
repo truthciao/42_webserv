@@ -25,13 +25,14 @@ jobs:
           COMMIT_URL="${{ github.event.head_commit.url }}"
           TIMESTAMP="${{ github.event.head_commit.timestamp }}"
           AVATAR="https://github.com/$ACTOR.png"
+          EPOCH=$(date -d "$TIMESTAMP" +%s)
 
           CHANGED_FILES=$(echo '${{ toJSON(github.event.commits) }}' | jq -r '.[].modified[], .[].added[], .[].removed[]' 2>/dev/null | sort -u | head -8)
 
           if [ -n "$CHANGED_FILES" ]; then
-            FILE_LIST=$(echo "$CHANGED_FILES" | sed 's/^/`/' | sed 's/$/`/' | tr '\n' ',' | sed 's/,/\\n/g' | sed 's/\\n$//')
+            FILE_LIST=$(echo "$CHANGED_FILES" | sed 's/^/• \`/' | sed 's/$/\`/' | paste -sd '\n')
           else
-            FILE_LIST="\`no file info\`"
+            FILE_LIST="• \`no file info\`"
           fi
 
           curl -H "Content-Type: application/json" \
@@ -42,23 +43,29 @@ jobs:
               \"title\": \"🚀 New merge to main\",
               \"url\": \"$COMMIT_URL\",
               \"color\": 5814783,
+              \"description\": \"\\u200b\",
               \"thumbnail\": {
                 \"url\": \"$AVATAR\"
               },
               \"fields\": [
                 {
-                  \"name\": \"👤 Author\",
-                  \"value\": \"**$ACTOR**\",
-                  \"inline\": true
+                  \"name\": \"\\u200b\",
+                  \"value\": \"👤 **Author:** \`$ACTOR\`\\n🕐 **Time:** <t:$EPOCH:R> (<t:$EPOCH:f>)\",
+                  \"inline\": false
                 },
                 {
-                  \"name\": \"🕐 Time\",
-                  \"value\": \"<t:$(date -d '$TIMESTAMP' +%s):R>\",
-                  \"inline\": true
+                  \"name\": \"\\u200b\",
+                  \"value\": \"\\u200b\",
+                  \"inline\": false
                 },
                 {
                   \"name\": \"📝 Commit Message\",
                   \"value\": \"\`\`\`$COMMIT_MSG\`\`\`\",
+                  \"inline\": false
+                },
+                {
+                  \"name\": \"\\u200b\",
+                  \"value\": \"\\u200b\",
                   \"inline\": false
                 },
                 {
@@ -68,7 +75,7 @@ jobs:
                 }
               ],
               \"footer\": {
-                \"text\": \"42 webserv • ${{ github.repository }}\"
+                \"text\": \"42 webserv\"
               }
             }]
           }" \
