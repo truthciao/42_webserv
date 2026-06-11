@@ -208,7 +208,14 @@ LocationConfig ConfigParser::_parseLocation()
 {
 	LocationConfig loc;
 
-	loc.route = _accept(); //ex. "/images"
+	std::string route = _accept();
+	if (route == "{" || route == ";") {
+		throw std::invalid_argument("Location is missing a route path.");
+	}
+	if (route[0] != '/') {
+		throw std::invalid_argument("Location route must start with '/': " + route);
+	}
+	loc.route = route;
 	_expect("{");
 
 	while (_pos < _tokens.size() && _tokens[_pos] != "}") {
@@ -216,25 +223,33 @@ LocationConfig ConfigParser::_parseLocation()
 
 		if (directive == "root") {
 			loc.root = _accept();
+			if (loc.root == ";") throw std::invalid_argument("Directive 'root' has no argument.");
 			_expect(";");
 		}
 
 		else if (directive == "index") {
 			loc.index = _accept();
+			if (loc.index == ";") throw std::invalid_argument("Directive 'index' has no argument.");
 			_expect(";");
 		}
 
 		else if (directive == "autoindex") {
 			std::string value = _accept();
 			if (value != "on" && value != "off")
-					throw std::invalid_argument("autonidex must be 'on' or 'off'");
+				throw std::invalid_argument("autonidex must be 'on' or 'off'");
 			loc.autoindex = (value == "on");
 			_expect(";");
 		}
 
 		else if (directive == "allow_methods") {
-			while (_pos < _tokens.size() && _tokens[_pos] != ";")
+			bool has_methods = false;
+			while (_pos < _tokens.size() && _tokens[_pos] != ";") {
 				loc.allow_methods.insert(_accept());//塞入 std::set
+				has_methods = true;
+			}
+			if (!has_methods) {
+                throw std::invalid_argument("allow_methods requires at least one method.");
+			}
 			_expect(";");
 		}
 
@@ -248,8 +263,13 @@ LocationConfig ConfigParser::_parseLocation()
 		}
 
 		else if (directive == "upload_enable") {
-			loc.upload_enable = (_accept() == "on");
-			_expect(";");
+			std::string value = _accept();
+            // 之前的代码: loc.upload_enable = (_accept() == "on");
+            // 危险！如果用户写了 upload_enable yes; 会被默默当成 off。必须严格拦截！
+            if (value != "on" && value != "off")
+                throw std::invalid_argument("upload_enable must be 'on' or 'off', got: " + value);
+            loc.upload_enable = (value == "on");
+            _expect(";");
 		}
 
 		else if (directive == "upload_store") {
