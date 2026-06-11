@@ -1,0 +1,32 @@
+name: Notify Discord on main updates
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [closed]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    if: |
+      github.event_name == 'push' ||
+      (github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main')
+
+    steps:
+      - name: Send message to Discord
+        run: |
+          MESSAGE=""
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            MESSAGE="🚀 New push to main\n👤 Author: ${{ github.actor }}\n📝 Commit: ${{ github.event.head_commit.message }}"
+          else
+            MESSAGE="✅ PR merged into main\n👤 Author: ${{ github.event.pull_request.user.login }}\n📌 Title: ${{ github.event.pull_request.title }}"
+          fi
+
+          curl -H "Content-Type: application/json" \
+          -X POST \
+          -d "{\"content\": \"$MESSAGE\"}" \
+          ${{ secrets.DISCORD_WEBHOOK }}
