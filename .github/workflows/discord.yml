@@ -16,7 +16,7 @@ jobs:
           ACTOR="${{ github.actor }}"
 
           if [ "$ACTOR" = "truthciao" ]; then
-            MENTION="<@738256818232623236>"
+            MENTION="<@1291448390420271185>"
           else
             MENTION="<@738256818232623236>"
           fi
