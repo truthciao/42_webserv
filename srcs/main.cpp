@@ -11,12 +11,7 @@
 
 bool set_nonblocking(int fd)
 {
-	if(fcntl(fd, F_SETFL, O_NONBLOCK) == -1)
-	{
-		std::cerr << "fcntl F_SETFL O_NONBLOCK failed\n";
-		return false;
-	}
-	return true;
+
 }
 
 int create_serve_socket(int port)

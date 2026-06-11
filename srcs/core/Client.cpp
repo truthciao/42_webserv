@@ -21,17 +21,10 @@ Client::Client(int fd)
 
 Client::~Client()
 {
-	close_fd();
+	if (_fd >= 0)
+		close(_fd);
 }
 
-void Client::close_fd()
-{
-	if (_fd >= 0)
-	{
-		close(_fd);
-		_fd = -1;
-	}
-}
 
 // ─────────────────────────────────────────────
 // Reading phase  (state == READING, poll watches POLLIN)

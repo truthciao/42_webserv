@@ -38,8 +38,6 @@ private:
 	size_t		_write_offset;
 
 	bool		_request_complete;
-
-	void		close_fd();
 };
 
 
