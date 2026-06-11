@@ -10,11 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
       - name: Send message to Discord
         run: |
           MENTION=""
@@ -30,34 +25,63 @@ jobs:
           COMMIT_URL="${{ github.event.head_commit.url }}"
           TIMESTAMP="${{ github.event.head_commit.timestamp }}"
           AVATAR="https://github.com/$ACTOR.png"
-          TIME_STRING=$(date -d "$TIMESTAMP" -u +"%Y-%m-%d %H:%M:%S UTC")
+          EPOCH=$(date -d "$TIMESTAMP" +%s)
 
-          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD 2>/dev/null)
+          CHANGED_FILES=$(curl -s \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.sha }}" \
+            | jq -r '.files[].filename' \
+            | head -8)
 
           if [ -n "$CHANGED_FILES" ]; then
-            FILE_LIST=$(echo "$CHANGED_FILES" | sed 's/^/  - /' | tr '\n' '\n')
+            FILE_LIST=$(echo "$CHANGED_FILES" | sed 's/^/• \`/' | sed 's/$/\`/' | paste -sd '\n')
           else
-            FILE_LIST="  - (no files changed)"
+            FILE_LIST="• \`no file info\`"
           fi
 
-          # Build log content line by line
-          LOG_CONTENT="# New merge detected on branch 'main'\n\nAuthor:     $ACTOR\nTimestamp:  $TIME_STRING\nMessage:    \"$COMMIT_MSG\"\n\nFiles Changed:\n$FILE_LIST"
-
           curl -H "Content-Type: application/json" \
-            -X POST \
-            -d "{
-              \"content\": \"$MENTION\",
-              \"embeds\": [{
-                \"title\": \"🚀 View Commit on GitHub\",
-                \"url\": \"$COMMIT_URL\",
-                \"color\": 2895667,
-                \"description\": \"\`\`\`yaml\n$LOG_CONTENT\n\`\`\`\",
-                \"thumbnail\": {
-                  \"url\": \"$AVATAR\"
+          -X POST \
+          -d "{
+            \"content\": \"$MENTION\",
+            \"embeds\": [{
+              \"title\": \"🚀 New merge to main\",
+              \"url\": \"$COMMIT_URL\",
+              \"color\": 5814783,
+              \"description\": \"\\u200b\",
+              \"thumbnail\": {
+                \"url\": \"$AVATAR\"
+              },
+              \"fields\": [
+                {
+                  \"name\": \"\\u200b\",
+                  \"value\": \"👤 **Author:** \`$ACTOR\`\\n🕐 **Time:** <t:$EPOCH:R> (<t:$EPOCH:f>)\",
+                  \"inline\": false
                 },
-                \"footer\": {
-                  \"text\": \"${{ github.repository }}\"
+                {
+                  \"name\": \"\\u200b\",
+                  \"value\": \"\\u200b\",
+                  \"inline\": false
+                },
+                {
+                  \"name\": \"📝 Commit Message\",
+                  \"value\": \"\`\`\`$COMMIT_MSG\`\`\`\",
+                  \"inline\": false
+                },
+                {
+                  \"name\": \"\\u200b\",
+                  \"value\": \"\\u200b\",
+                  \"inline\": false
+                },
+                {
+                  \"name\": \"📂 Changed Files\",
+                  \"value\": \"$FILE_LIST\",
+                  \"inline\": false
                 }
-              }]
-            }" \
-            ${{ secrets.DISCORD_WEBHOOK }}
+              ],
+              \"footer\": {
+                \"text\": \"42 webserv\"
+              }
+            }]
+          }" \
+          ${{ secrets.DISCORD_WEBHOOK }}
