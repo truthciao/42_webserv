@@ -21,7 +21,7 @@ jobs:
           MESSAGE=""
 
           if [ "${{ github.event_name }}" = "push" ]; then
-            MESSAGE="🚀 New push to main\n👤 Author: ${{ github.actor }}\n📝 Commit: ${{ github.event.head_commit.message }}"
+            MESSAGE="🚀 New push to main\n👤 Author: ${{ github.actor }}\n📝 Commit: ${{ github.event.head_commit.message }}\n\n"
           else
             MESSAGE="✅ PR merged into main\n👤 Author: ${{ github.event.pull_request.user.login }}\n📌 Title: ${{ github.event.pull_request.title }}"
           fi
