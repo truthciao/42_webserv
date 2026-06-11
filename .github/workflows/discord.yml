@@ -10,6 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # Needed to get previous commit for diff
+
       - name: Send message to Discord
         run: |
           MENTION=""
@@ -24,58 +29,43 @@ jobs:
           COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | head -1)
           COMMIT_URL="${{ github.event.head_commit.url }}"
           TIMESTAMP="${{ github.event.head_commit.timestamp }}"
-          AVATAR="https://github.com/$ACTOR.png"
-          EPOCH=$(date -d "$TIMESTAMP" +%s)
+          AVATAR="https://github.com/$ACTOR.png" # 头像 URL
+          TIME_STRING=$(date -d "$TIMESTAMP" -u +"%Y-%m-%d %H:%M:%S UTC")
 
-          CHANGED_FILES=$(echo '${{ toJSON(github.event.commits) }}' | jq -r '.[].modified[], .[].added[], .[].removed[]' 2>/dev/null | sort -u | head -8)
+          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD)
 
           if [ -n "$CHANGED_FILES" ]; then
-            FILE_LIST=$(echo "$CHANGED_FILES" | sed 's/^/• \`/' | sed 's/$/\`/' | paste -sd '\n')
+            FILE_LIST=$(echo "$CHANGED_FILES" | sed 's/^/  - /')
           else
-            FILE_LIST="• \`no file info\`"
+            FILE_LIST="  - (no files changed in this push)"
           fi
+
+          LOG_CONTENT=$(cat <<EOF
+# New merge detected on branch 'main'
+
+Author:     $ACTOR
+Timestamp:  $TIME_STRING
+Message:    "$COMMIT_MSG"
+
+Files Changed:
+$FILE_LIST
+EOF
+          )
 
           curl -H "Content-Type: application/json" \
           -X POST \
           -d "{
             \"content\": \"$MENTION\",
             \"embeds\": [{
-              \"title\": \"🚀 New merge to main\",
+              \"title\": \"🚀 View Commit on GitHub\",
               \"url\": \"$COMMIT_URL\",
-              \"color\": 5814783,
-              \"description\": \"\\u200b\",
+              \"color\": 2895667,
+              \"description\": \"\`\`\`yaml\n$LOG_CONTENT\n\`\`\`\",
               \"thumbnail\": {
                 \"url\": \"$AVATAR\"
               },
-              \"fields\": [
-                {
-                  \"name\": \"\\u200b\",
-                  \"value\": \"👤 **Author:** \`$ACTOR\`\\n🕐 **Time:** <t:$EPOCH:R> (<t:$EPOCH:f>)\",
-                  \"inline\": false
-                },
-                {
-                  \"name\": \"\\u200b\",
-                  \"value\": \"\\u200b\",
-                  \"inline\": false
-                },
-                {
-                  \"name\": \"📝 Commit Message\",
-                  \"value\": \"\`\`\`$COMMIT_MSG\`\`\`\",
-                  \"inline\": false
-                },
-                {
-                  \"name\": \"\\u200b\",
-                  \"value\": \"\\u200b\",
-                  \"inline\": false
-                },
-                {
-                  \"name\": \"📂 Changed Files\",
-                  \"value\": \"$FILE_LIST\",
-                  \"inline\": false
-                }
-              ],
               \"footer\": {
-                \"text\": \"42 webserv\"
+                \"text\": \"${{ github.repository }}\"
               }
             }]
           }" \
