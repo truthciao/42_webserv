@@ -20,16 +20,10 @@ jobs:
           MENTION=""
           ACTOR="${{ github.actor }}"
 
-          ENABLE_MENTION=false
-
-          if [ "$ENABLE_MENTION" = true ]; then
-            if [ "$ACTOR" = "truthciao" ]; then
-              MENTION="<@1291448390420271185>"
-            else
-              MENTION="<@738256818232623236>"
-            fi
+          if [ "$ACTOR" = "truthciao" ]; then
+            MENTION="<@738256818232623236>"
           else
-            MENTION=""
+            MENTION="<@738256818232623236>"
           fi
 
           COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | head -1)
