@@ -4,37 +4,72 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    types: [closed]
 
 jobs:
   notify:
     runs-on: ubuntu-latest
 
-    if: |
-      github.event_name == 'push' ||
-      (github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main')
-
     steps:
       - name: Send message to Discord
         run: |
-          MESSAGE=""
           MENTION=""
+          ACTOR="${{ github.actor }}"
 
-          # ✅ GitHub → Discord 映射
-          if [ "${{ github.actor }}" = "truthciao" ]; then
+          if [ "$ACTOR" = "truthciao" ]; then
             MENTION="<@1291448390420271185>"
           else
             MENTION="<@738256818232623236>"
           fi
 
-          if [ "${{ github.event_name }}" = "push" ]; then
-            MESSAGE="🚀 New push to main\n👤 Author: ${{ github.actor }}\n📝 Commit: ${{ github.event.head_commit.message }}"
+          COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | head -1)
+          COMMIT_URL="${{ github.event.head_commit.url }}"
+          TIMESTAMP="${{ github.event.head_commit.timestamp }}"
+          AVATAR="https://github.com/$ACTOR.png"
+
+          CHANGED_FILES=$(echo '${{ toJSON(github.event.commits) }}' | jq -r '.[].modified[], .[].added[], .[].removed[]' 2>/dev/null | sort -u | head -8)
+
+          if [ -n "$CHANGED_FILES" ]; then
+            FILE_LIST=$(echo "$CHANGED_FILES" | sed 's/^/`/' | sed 's/$/`/' | tr '\n' ',' | sed 's/,/\\n/g' | sed 's/\\n$//')
           else
-            MESSAGE="✅ PR merged into main\n👤 Author: ${{ github.event.pull_request.user.login }}\n📌 Title: ${{ github.event.pull_request.title }}"
+            FILE_LIST="\`no file info\`"
           fi
 
           curl -H "Content-Type: application/json" \
           -X POST \
-          -d "{\"content\": \"$MENTION\n$MESSAGE\"}" \
+          -d "{
+            \"content\": \"$MENTION\",
+            \"embeds\": [{
+              \"title\": \"🚀 New merge to main\",
+              \"url\": \"$COMMIT_URL\",
+              \"color\": 5814783,
+              \"thumbnail\": {
+                \"url\": \"$AVATAR\"
+              },
+              \"fields\": [
+                {
+                  \"name\": \"👤 Author\",
+                  \"value\": \"**$ACTOR**\",
+                  \"inline\": true
+                },
+                {
+                  \"name\": \"🕐 Time\",
+                  \"value\": \"<t:$(date -d '$TIMESTAMP' +%s):R>\",
+                  \"inline\": true
+                },
+                {
+                  \"name\": \"📝 Commit Message\",
+                  \"value\": \"\`\`\`$COMMIT_MSG\`\`\`\",
+                  \"inline\": false
+                },
+                {
+                  \"name\": \"📂 Changed Files\",
+                  \"value\": \"$FILE_LIST\",
+                  \"inline\": false
+                }
+              ],
+              \"footer\": {
+                \"text\": \"42 webserv • ${{ github.repository }}\"
+              }
+            }]
+          }" \
           ${{ secrets.DISCORD_WEBHOOK }}
