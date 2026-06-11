@@ -20,9 +20,9 @@ private:
 	Server(const Server&);
 	Server& operator=(const Server&);
 
-	int										_server_fd;
-	std::vector<struct pollfd>				_poll_fds;
-	std::map<int, std::auto_ptr<Client> >	_clients;
+	int							_server_fd;
+	std::vector<struct pollfd>	_poll_fds;
+	std::map<int, Client* >		_clients;
 
 	void	accept_connection();
 	void	rebuild_poll_array();

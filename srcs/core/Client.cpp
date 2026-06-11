@@ -49,7 +49,7 @@ bool	Client::read_from_socket()
 		}
 		else if (bytes_read == 0)
 		{
-            std::cout << "[-] Client fd=" << _fd << " closed connection during read\n";
+			std::cout << "[-] Client fd=" << _fd << " closed connection during read\n";
 			_state = CLOSING;
 			return false;
 		}
@@ -71,8 +71,7 @@ bool	Client::read_from_socket()
 // ─────────────────────────────────────────────
 void	Client::prepare_reponse()
 {
-    std::cout << "\n[Request from fd=" << _fd << "]\n" << _read_buf << "\n";
-
+	std::cout << "\n[Request from fd=" << _fd << "]\n" << _read_buf << "\n";
 
 	const std::string body = "<html><body><h1>Hello WebServ!</h1></body></html>";
 	std::ostringstream oss;
@@ -117,7 +116,7 @@ bool	Client::write_to_socket()
 		}
 	}
 
-    std::cout << "[+] Response sent to fd=" << _fd << ", closing\n";
+	std::cout << "[+] Response sent to fd=" << _fd << ", closing\n";
 	_state = CLOSING;
 	return false;
 }
