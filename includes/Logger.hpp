@@ -15,6 +15,8 @@ enum LogLevel
 class Logger
 {
 public:
-	
+
 }
+
+
 
