@@ -13,60 +13,57 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2 # Needed to get previous commit for diff
+          fetch-depth: 2
 
       - name: Send message to Discord
         run: |
           MENTION=""
           ACTOR="${{ github.actor }}"
 
-          if [ "$ACTOR" = "truthciao" ]; then
-            MENTION="<@1291448390420271185>"
+          ENABLE_MENTION=false
+
+          if [ "$ENABLE_MENTION" = true ]; then
+            if [ "$ACTOR" = "truthciao" ]; then
+              MENTION="<@1291448390420271185>"
+            else
+              MENTION="<@738256818232623236>"
+            fi
           else
-            MENTION="<@738256818232623236>"
+            MENTION=""
           fi
 
           COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | head -1)
           COMMIT_URL="${{ github.event.head_commit.url }}"
           TIMESTAMP="${{ github.event.head_commit.timestamp }}"
-          AVATAR="https://github.com/$ACTOR.png" # 头像 URL
+          AVATAR="https://github.com/$ACTOR.png"
           TIME_STRING=$(date -d "$TIMESTAMP" -u +"%Y-%m-%d %H:%M:%S UTC")
 
-          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD)
+          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD 2>/dev/null)
 
           if [ -n "$CHANGED_FILES" ]; then
-            FILE_LIST=$(echo "$CHANGED_FILES" | sed 's/^/  - /')
+            FILE_LIST=$(echo "$CHANGED_FILES" | sed 's/^/  - /' | tr '\n' '\n')
           else
-            FILE_LIST="  - (no files changed in this push)"
+            FILE_LIST="  - (no files changed)"
           fi
 
-          LOG_CONTENT=$(cat <<EOF
-# New merge detected on branch 'main'
-
-Author:     $ACTOR
-Timestamp:  $TIME_STRING
-Message:    "$COMMIT_MSG"
-
-Files Changed:
-$FILE_LIST
-EOF
-          )
+          # Build log content line by line
+          LOG_CONTENT="# New merge detected on branch 'main'\n\nAuthor:     $ACTOR\nTimestamp:  $TIME_STRING\nMessage:    \"$COMMIT_MSG\"\n\nFiles Changed:\n$FILE_LIST"
 
           curl -H "Content-Type: application/json" \
-          -X POST \
-          -d "{
-            \"content\": \"$MENTION\",
-            \"embeds\": [{
-              \"title\": \"🚀 View Commit on GitHub\",
-              \"url\": \"$COMMIT_URL\",
-              \"color\": 2895667,
-              \"description\": \"\`\`\`yaml\n$LOG_CONTENT\n\`\`\`\",
-              \"thumbnail\": {
-                \"url\": \"$AVATAR\"
-              },
-              \"footer\": {
-                \"text\": \"${{ github.repository }}\"
-              }
-            }]
-          }" \
-          ${{ secrets.DISCORD_WEBHOOK }}
+            -X POST \
+            -d "{
+              \"content\": \"$MENTION\",
+              \"embeds\": [{
+                \"title\": \"🚀 View Commit on GitHub\",
+                \"url\": \"$COMMIT_URL\",
+                \"color\": 2895667,
+                \"description\": \"\`\`\`yaml\n$LOG_CONTENT\n\`\`\`\",
+                \"thumbnail\": {
+                  \"url\": \"$AVATAR\"
+                },
+                \"footer\": {
+                  \"text\": \"${{ github.repository }}\"
+                }
+              }]
+            }" \
+            ${{ secrets.DISCORD_WEBHOOK }}
