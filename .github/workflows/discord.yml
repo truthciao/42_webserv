@@ -21,7 +21,7 @@ jobs:
             MENTION="<@738256818232623236>"
           fi
 
-          COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | head -1)
+          COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | head -1 | sed 's/\\/\\\\/g; s/"/\\"/g; s/\r//g')
           COMMIT_URL="${{ github.event.head_commit.url }}"
           TIMESTAMP="${{ github.event.head_commit.timestamp }}"
           AVATAR="https://github.com/$ACTOR.png"
