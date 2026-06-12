@@ -18,7 +18,9 @@ INC_DIR		= includes
 # List all .cpp files you want to compile here.
 SRCS_FILES	= main.cpp \
 			  core/Server.cpp \
-			  core/Client.cpp
+			  core/Client.cpp \
+			  core/Logger.cpp \
+			  http/Request.cpp
 
 # Prepend directory paths to source files
 SRCS		= $(addprefix $(SRC_DIR)/, $(SRCS_FILES))

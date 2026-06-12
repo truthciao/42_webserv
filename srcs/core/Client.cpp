@@ -1,4 +1,5 @@
 #include "Client.hpp"
+#include "Logger.hpp"
 
 #include <iostream>
 #include <sys/socket.h>
@@ -14,10 +15,7 @@ Client::Client(int fd)
 	: _fd(fd)
 	, _state(READING)
 	, _write_offset(0)
-	, _request_complete(false)
-{
-	_read_buf.reserve(BUFFER_SIZE);
-}
+{}
 
 Client::~Client()
 {
@@ -32,7 +30,7 @@ Client::~Client()
 
 bool	Client::read_from_socket()
 {
-	char buffer[1024] = {0};
+	char buffer[BUFFER_SIZE];
 
 	while(true)
 	{
@@ -40,12 +38,7 @@ bool	Client::read_from_socket()
 
 		if (bytes_read > 0)
 		{
-			_read_buf.append(buffer, bytes_read);
-			if (_read_buf.find("\r\n\r\n") != std::string::npos)
-			{
-				_request_complete = true;
-				break;
-			}
+			_process_data(buffer, static_cast<size_t>(bytes_read));
 		}
 		else if (bytes_read == 0)
 		{
@@ -57,7 +50,7 @@ bool	Client::read_from_socket()
 		{
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				break;
-			std::cerr << "[-] Read error on fd=" << _fd << ": " << strerror(errno) << std::endl;
+			LOG_CLIENT_E() << "[-] Read error on fd=" << _fd << ": " << strerror(errno);
 			_state = CLOSING;
 			return false;
 		}
@@ -65,13 +58,38 @@ bool	Client::read_from_socket()
 	return true;
 }
 
+void	Client::_process_data(const char* data, size_t len)
+{
+	_request.feed(data, len);
+
+	if (_request.has_error())
+	{
+		LOG_CLIENT_E() << "[-] Parse error on fd=" << _fd << "\n";
+		_state = CLOSING;
+		return ;
+	}
+
+	if (_request.is_complete())
+	{
+		prepare_reponse();
+
+		std::string leftover = _request.take_leftover();
+		_request.reset();
+
+		if (!leftover.empty())
+			_process_data(leftover.c_str(), leftover.size());
+	}
+}
+
+
 // ─────────────────────────────────────────────
 // Transition: READING → WRITING
 // Called once we have a complete request in read_buf_.
 // ─────────────────────────────────────────────
+
 void	Client::prepare_reponse()
 {
-	std::cout << "\n[Request from fd=" << _fd << "]\n" << _read_buf << "\n";
+	_request.print();
 
 	const std::string body = "<html><body><h1>Hello WebServ!</h1></body></html>";
 	std::ostringstream oss;
@@ -110,13 +128,13 @@ bool	Client::write_to_socket()
 		{
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				return true;
-			std::cerr << "Write error on fd=" << _fd << ": " << strerror(errno) << std::endl;
+			LOG_CLIENT_E() << "Write error on fd=" << _fd << ": " << strerror(errno);
 			_state = CLOSING;
 			return false;
 		}
 	}
 
-	std::cout << "[+] Response sent to fd=" << _fd << ", closing\n";
+	LOG_CLIENT_I() << "[+] Response sent to fd=" << _fd << ", closing\n";
 	_state = CLOSING;
 	return false;
 }

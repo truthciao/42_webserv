@@ -1,4 +1,5 @@
 #include "Server.hpp"
+#include "Logger.hpp"
 
 #include <iostream>
 #include <cstring>
@@ -37,8 +38,8 @@ bool Server::set_nonblocking(int fd)
 {
 	if(fcntl(fd, F_SETFL, O_NONBLOCK) == -1)
 	{
-		std::cerr << "fcntl O_NONBLOCK failed on fd=" << fd
-				  << ": " << strerror(errno) << "\n";
+		LOG_SERVER_E() << "fcntl O_NONBLOCK failed on fd=" << fd
+				  << ": " << strerror(errno);
 		return false;
 	}
 	return true;
@@ -49,7 +50,7 @@ bool	Server::setup(int port)
 	_server_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (_server_fd < 0)
 	{
-		std::cerr << "Socket creation failed: " << strerror(errno) << std::endl;
+		LOG_SERVER_E() << "Socket creation failed: " << strerror(errno);
 		return false;
 	}
 
@@ -64,14 +65,14 @@ bool	Server::setup(int port)
 
 	if (bind(_server_fd, (struct sockaddr * )&address, sizeof(address)) < 0)
 	{
-		std::cerr << "Bind failed! Port might be in use." << std::endl;
+		LOG_SERVER_E() << "Bind failed! Port might be in use.";
 		close(_server_fd);
 		return false;
 	}
 
 	if (listen(_server_fd, SOMAXCONN) < 0)
 	{
-		std::cerr << "Listen Failed!" << std::endl;
+		LOG_SERVER_E() << "Listen Failed!";
 		close(_server_fd);
 		return false;
 	}
@@ -88,7 +89,7 @@ bool	Server::setup(int port)
 	s_pfd.revents 	= 0;
 	_poll_fds.push_back(s_pfd);
 
-	std::cout << "Server listening on port " << port << " (non-blocking mode)" << std::endl;
+	LOG_SERVER_I() << "Server listening on port " << port << " (non-blocking mode)";
 	return true;
 }
 
@@ -105,7 +106,7 @@ void	Server::run()
 		{
 			if (errno == EINTR)
 				continue;
-			std::cerr << "poll() failed: " << strerror(errno) << std::endl;
+			LOG_SERVER_E() << "poll() failed: " << strerror(errno);
 			break;
 		}
 
@@ -121,10 +122,10 @@ void	Server::run()
 			{
 				if (_poll_fds[idx].fd == _server_fd)
 				{
-					std::cerr << "Server socket error!" << std::endl;
+					LOG_SERVER_E() << "Server socket error!";
 					return ;
 				}
-				std::cout << "[-] Error on fd=" << _poll_fds[idx].fd << ", closing" << std::endl;
+				std::cout << "[-] Error on fd=" << _poll_fds[idx].fd << ", closing";
 				remove_client(_poll_fds[idx].fd);
 				need_rebuild = true;
 				continue;
@@ -164,7 +165,7 @@ void	Server::accept_connection()
 		{
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				break;
-			std::cerr << "Accept failed: " << strerror(errno) << std::endl;
+			LOG_SERVER_E() << "Accept failed: " << strerror(errno);
 			break;
 		}
 
@@ -176,8 +177,8 @@ void	Server::accept_connection()
 
 		_clients[client_fd] = new Client(client_fd);
 
-		std::cout << "[+] New connection: fd=" << client_fd
-				  << " (total clients: " << _clients.size() - 1 << ")" << std::endl;
+		LOG_SERVER_I() << "[+] New connection: fd=" << client_fd
+				  << " (total clients: " << _clients.size() - 1 << ")";
 	}
 }
 
@@ -228,8 +229,6 @@ void	Server::handle_client(int fd)
 			remove_client(fd);
 			return;
 		}
-		if (client->request_complete())
-			client->prepare_reponse();
 	}
 	else if (client->get_state() == WRITING)
 	{
@@ -249,7 +248,7 @@ void	Server::remove_client(int fd)
 	{
 		delete it->second;
 		_clients.erase(it);
-		std::cout << "[-] Removed fd=" << fd
+		LOG_SERVER_I() << "[-] Removed fd=" << fd
 				  << " (active clients: " << _clients.size() << ")\n";
 	}
 }
