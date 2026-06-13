@@ -42,7 +42,7 @@ bool	Client::read_from_socket()
 		}
 		else if (bytes_read == 0)
 		{
-			std::cout << "[-] Client fd=" << _fd << " closed connection during read\n";
+			LOG_CLIENT_I() << "[-] Client fd=" << _fd << " closed connection during read";
 			_state = CLOSING;
 			return false;
 		}
@@ -64,7 +64,7 @@ void	Client::_process_data(const char* data, size_t len)
 
 	if (_request.has_error())
 	{
-		LOG_CLIENT_E() << "[-] Parse error on fd=" << _fd << "\n";
+		LOG_CLIENT_E() << "[-] Parse error on fd=" << _fd;
 		_state = CLOSING;
 		return ;
 	}
@@ -89,18 +89,10 @@ void	Client::_process_data(const char* data, size_t len)
 
 void	Client::prepare_reponse()
 {
-	_request.print();
+	// _request.print();
+	_response.build(_request.get_uri(), "./www");
 
-	const std::string body = "<html><body><h1>Hello WebServ!</h1></body></html>";
-	std::ostringstream oss;
-	oss << body.size();
-	_write_buf =
-		"HTTP/1.1 200 OK\r\n"
-		"Content-Type: text/html\r\n"
-		"Content-Length: " + oss.str() + "\r\n"
-		"\r\n"
-		+ body;
-
+	_write_buf = _response.get_raw();
 	_write_offset = 0;
 	_state = WRITING;
 }
@@ -134,7 +126,7 @@ bool	Client::write_to_socket()
 		}
 	}
 
-	LOG_CLIENT_I() << "[+] Response sent to fd=" << _fd << ", closing\n";
+	LOG_CLIENT_I() << "[+] Response sent to fd=" << _fd << ", closing";
 	_state = CLOSING;
 	return false;
 }

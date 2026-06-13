@@ -20,7 +20,8 @@ SRCS_FILES	= main.cpp \
 			  core/Server.cpp \
 			  core/Client.cpp \
 			  core/Logger.cpp \
-			  http/Request.cpp
+			  http/Request.cpp \
+			  http/Response.cpp
 
 # Prepend directory paths to source files
 SRCS		= $(addprefix $(SRC_DIR)/, $(SRCS_FILES))

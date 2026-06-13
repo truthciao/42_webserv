@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Webserv Test Dashboard</title>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: 40px auto; }
+    .card { border: 1px solid #ccc; border-radius: 8px; padding: 16px; margin: 12px 0; }
+    .card h3 { margin-top: 0; }
+    .tag { background:#eef; color:#225; padding:2px 8px; border-radius:4px; font-size:12px; }
+    code { background:#f4f4f4; padding:2px 6px; border-radius:4px; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Webserv Evaluation Dashboard</h1>
+  <p>Each card maps to a point on the evaluation sheet.</p>
+
+  <!-- 静态网站 -->
+  <div class="card">
+    <h3>1. Static Website <span class="tag">browser / GET</span></h3>
+    <p>完整静态资源（CSS、图片、JS）。</p>
+    <a href="/static/about.html">浏览静态页面</a>
+  </div>
+
+  <!-- GET / POST / DELETE -->
+  <div class="card">
+    <h3>2. HTTP Methods <span class="tag">GET / POST / DELETE</span></h3>
+    <!-- 上传表单 = POST -->
+    <form action="/upload/" method="post" enctype="multipart/form-data">
+      <input type="file" name="file">
+      <button>Upload (POST)</button>
+    </form>
+    <p><a href="/upload/">查看已上传文件 (GET, autoindex)</a></p>
+    <!-- DELETE 通过一个小 JS fetch 触发 -->
+    <button onclick="fetch('/upload/test.txt',{method:'DELETE'}).then(r=>alert('Status: '+r.status))">
+      DELETE test.txt
+    </button>
+  </div>
+
+  <!-- 方法限制 -->
+  <div class="card">
+    <h3>3. Method Restriction <span class="tag">config</span></h3>
+    <p><code>/methods/</code> 只允许 GET。下面这个 POST 应该返回 405。</p>
+    <button onclick="fetch('/methods/',{method:'POST'}).then(r=>alert('Status: '+r.status))">
+      POST to /methods/ (expect 405)
+    </button>
+  </div>
+
+  <!-- 目录列表 -->
+  <div class="card">
+    <h3>4. Directory Listing (autoindex) <span class="tag">config</span></h3>
+    <a href="/listing/">列出 /listing/ 目录</a>
+  </div>
+
+  <!-- 重定向 -->
+  <div class="card">
+    <h3>5. Redirection <span class="tag">config</span></h3>
+    <a href="/redirect_me/">应被 301/302 重定向</a>
+  </div>
+
+  <!-- 路径映射 -->
+  <div class="card">
+    <h3>6. Route → Directory (root/alias) <span class="tag">config</span></h3>
+    <a href="/kapouet/pouic/toto/pouet.html">/kapouet/... → /tmp/www/...</a>
+  </div>
+
+  <!-- 错误页 -->
+  <div class="card">
+    <h3>7. Custom Error Page <span class="tag">config / status code</span></h3>
+    <a href="/this-does-not-exist">触发自定义 404</a>
+  </div>
+
+  <!-- CGI -->
+  <div class="card">
+    <h3>8. CGI <span class="tag">GET / POST</span></h3>
+    <a href="/cgi-bin/hello.py?name=evaluator">CGI GET (query string)</a>
+    <form action="/cgi-bin/hello.py" method="post">
+      <input name="msg" value="hello cgi">
+      <button>CGI POST</button>
+    </form>
+    <p><a href="/cgi-bin/env_dump.py">查看 CGI 环境变量</a></p>
+    <p><a href="/cgi-bin/infinite_loop.py">CGI 死循环（应超时，不崩溃）</a></p>
+  </div>
+
+  <!-- Bonus: session -->
+  <div class="card">
+    <h3>9. Cookies & Session <span class="tag">BONUS</span></h3>
+    <a href="/cgi-bin/session.py">访问计数 / 会话演示</a>
+  </div>
+
+  <!-- 多端口 -->
+  <div class="card">
+    <h3>10. Multiple Servers <span class="tag">config / ports</span></h3>
+    <a href="http://localhost:8081/">访问第二个网站 (端口 8081)</a>
+  </div>
+</body>
+</html>
