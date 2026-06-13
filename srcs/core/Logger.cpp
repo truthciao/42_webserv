@@ -111,7 +111,7 @@ std::string Logger::level_color(LogLevel level) const
 {
     switch (level)
     {
-        case LOG_DEBUG:   return GRAY;
+        case LOG_DEBUG:   return M_BLUE;
         case LOG_INFO:    return "";
         case LOG_WARNING: return YELLOW;
         case LOG_ERROR:   return RED;

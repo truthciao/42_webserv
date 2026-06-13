@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Request.hpp"
+#include "Response.hpp"
 
 #include <string>
 #include <unistd.h>
@@ -38,6 +39,7 @@ private:
 	ClientState	_state;
 
 	Request		_request;
+	Response	_response;
 
 	std::string	_write_buf;
 	size_t		_write_offset;

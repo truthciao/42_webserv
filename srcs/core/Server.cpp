@@ -177,7 +177,7 @@ void	Server::accept_connection()
 
 		_clients[client_fd] = new Client(client_fd);
 
-		LOG_SERVER_I() << "[+] New connection: fd=" << client_fd
+		LOG_SERVER_I() << "\n[+] New connection: fd=" << client_fd
 				  << " (total clients: " << _clients.size() - 1 << ")";
 	}
 }
@@ -249,7 +249,7 @@ void	Server::remove_client(int fd)
 		delete it->second;
 		_clients.erase(it);
 		LOG_SERVER_I() << "[-] Removed fd=" << fd
-				  << " (active clients: " << _clients.size() << ")\n";
+				  << " (active clients: " << _clients.size() << ")";
 	}
 }
 

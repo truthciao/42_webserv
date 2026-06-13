@@ -15,16 +15,16 @@ jobs:
           MENTION=""
           ACTOR="${{ github.actor }}"
 
-          if [ "$ACTOR" = "truthciao" ]; then
-            MENTION="<@1291448390420271185>"
-          else
-            MENTION="<@738256818232623236>"
-          fi
+          # if [ "$ACTOR" = "truthciao" ]; then
+          #   MENTION="<@1291448390420271185>"
+          # else
+          #   MENTION="<@738256818232623236>"
+          # fi
 
           COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | head -1 | sed 's/\\/\\\\/g; s/"/\\"/g; s/\r//g')
           COMMIT_URL="${{ github.event.head_commit.url }}"
           TIMESTAMP="${{ github.event.head_commit.timestamp }}"
-          AVATAR="https://github.com/$ACTOR.png"
+          # AVATAR="https://github.com/$ACTOR.png"
           EPOCH=$(date -d "$TIMESTAMP" +%s)
 
           CHANGED_FILES=$(curl -s \
@@ -49,9 +49,9 @@ jobs:
               \"url\": \"$COMMIT_URL\",
               \"color\": 5814783,
               \"description\": \"\\u200b\",
-              \"thumbnail\": {
-                \"url\": \"$AVATAR\"
-              },
+              # \"thumbnail\": {
+              #   \"url\": \"$AVATAR\"
+              # },
               \"fields\": [
                 {
                   \"name\": \"\\u200b\",

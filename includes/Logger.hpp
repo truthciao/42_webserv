@@ -149,7 +149,7 @@ private:
 #define BLUE "\033[34m"    // 蓝色
 #define WHITE  "\033[1;37m"
 #define CYAN   "\033[1;36m"
-#define MAGENTA  "\033[1;35m"
+#define MAGENTA  "\033[35m"
 #define GRAY    "\033[0;90m"
 
 // ==== soft (Morandi-like) colors ====
