@@ -12,7 +12,11 @@
 // Construction
 // ─────────────────────────────────────────────
 
-Response::Response() : _status_code(200), _status_text("OK") {}
+Response::Response()
+	: _status_code(200)
+	, _status_text("OK")
+	, _file_size(0)
+{}
 
 // ─────────────────────────────────────────────
 //  Static member init
@@ -43,7 +47,7 @@ std::map<std::string, std::string>	Response::init_mime_types()
 // Public interface
 // ─────────────────────────────────────────────
 
-void	Response::build(const std::string& uri, const std::string& root)
+bool	Response::build(const std::string& uri, const std::string& root)
 {
 	std::string		path = uri;
 	const size_t	q = path.find('?');
@@ -54,7 +58,7 @@ void	Response::build(const std::string& uri, const std::string& root)
 	{
 		build_error(403);
 		LOG_RESPONSE_D() << "Try to acess /.. : 403";
-		return;
+		return false;
 	}
 
 	std::string fs_path = root + path;
@@ -71,31 +75,36 @@ void	Response::build(const std::string& uri, const std::string& root)
 					"Content-Length: 0\r\n"
 					"Connection: close\r\n"
 					"\r\n";
-			return;
+			return false;
 		}
 		else
 			fs_path += "index.html";
 	}
 
-	if (file_exists(fs_path))
+	size_t	file_size = 0;
+	if (file_exists(fs_path) && get_file_size_byptes(fs_path, file_size))
 	{
-		std::string body;
-		if (!read_file(fs_path, body))
-		{
-			build_error(403);
-			LOG_RESPONSE_D() << fs_path << " open failed: 403";
-			return;
-		}
+		// std::string body;
+		// if (!read_file(fs_path, body))
+		// {
+		// 	build_error(403);
+		// 	LOG_RESPONSE_D() << fs_path << " open failed: 403";
+		// 	return;
+		// }
 		_status_code = 200;
 		_status_text = status_text(200);
-		_body = body;
-		serialize(get_mime_type(fs_path));
+		// _body = body;
+		_file_path = fs_path;
+		_file_size = file_size;
+		// serialize(get_mime_type(fs_path));
+		build_file_header(get_mime_type(fs_path));
+		return true;
 	}
 	else
 	{
 		build_error(404);
 		LOG_RESPONSE_D() << fs_path << " : file doesn't exit: 404";
-		return;
+		return false;
 	}
 }
 
@@ -113,21 +122,21 @@ std::string	Response::get_mime_type(const std::string& path)
 	return "application/octet-stream";
 }
 
-bool	Response::read_file(const std::string& path, std::string& body)
-{
-	std::ifstream file(path.c_str(), std::ios::binary);
-	if (!file.is_open())
-	{
-		LOG_CGI_E() << "Error: open requested file failed!";
-		return false;
-	}
+// bool	Response::read_file(const std::string& path, std::string& body)
+// {
+// 	std::ifstream file(path.c_str(), std::ios::binary);
+// 	if (!file.is_open())
+// 	{
+// 		LOG_CGI_E() << "Error: open requested file failed!";
+// 		return false;
+// 	}
 
-	std::ostringstream oss;
-	oss << file.rdbuf();
-	body = oss.str();
+// 	std::ostringstream oss;
+// 	oss << file.rdbuf();
+// 	body = oss.str();
 
-	return true;
-}
+// 	return true;
+// }
 
 bool			Response::file_exists(const std::string& path)
 {
@@ -141,6 +150,16 @@ bool			Response::is_directory(const std::string& path)
 	return (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode));
 }
 
+bool Response::get_file_size_byptes(const std::string& path, size_t& out_size)
+{
+	struct stat st;
+	if (stat(path.c_str(), &st) != 0)
+		return false;
+	out_size = static_cast<size_t>(st.st_size);
+	return true;
+}
+
+
 std::string	Response::status_text(int code)
 {
 	switch (code)
@@ -148,11 +167,11 @@ std::string	Response::status_text(int code)
 		case 200: return "OK";
 		case 301: return "Moved Permanently";
 		case 400: return "Bad Request";
-		case 403: return "Fobidden";
+		case 403: return "Forbidden";
 		case 404: return "Not Found";
 		case 405: return "Method Not Allowed";
 		case 500: return "Internal Server Error";
-		default:  return "Unknow";
+		default:  return "Unknown";
 	}
 }
 
@@ -163,7 +182,7 @@ void	Response::build_error(int code)
 
 	std::ostringstream body;
 	body	<< "<html><body>"
-			<< "<h1" << code << " " << _status_text << "</h1>"
+			<< "<h1>" << code << " " << _status_text << "</h1>"
 			<< "</body></html>";
 	_body = body.str();
 
@@ -188,3 +207,13 @@ void	Response::serialize(const std::string& content_type)
 	_raw = header + _body;
 }
 
+void	Response::build_file_header( const std::string& content_type)
+{
+	std::ostringstream h;
+	h	<< "HTTP/1.1 " << _status_code << " " << _status_text << "\r\n"
+		<< "Content-Type: " << content_type << "\r\n"
+		<< "Content-Length: " << _file_size << "\r\n"
+		<< "Connection: close\r\n"
+		<< "\r\n";
+	_raw = h.str();
+}

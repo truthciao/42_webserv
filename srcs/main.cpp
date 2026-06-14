@@ -4,6 +4,7 @@
 
 volatile sig_atomic_t g_running = 1;
 
+
 void signal_handler(int signum)
 {
     (void)signum;
@@ -12,6 +13,7 @@ void signal_handler(int signum)
 
 int main()
 {
+	signal(SIGPIPE, SIG_IGN);
  	signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 

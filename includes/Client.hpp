@@ -5,14 +5,23 @@
 
 #include <string>
 #include <unistd.h>
+#include <fstream>
 
 #define BUFFER_SIZE 4096
+#define SEND_CHUNK_SIZE 65536
 
 enum ClientState
 {
 	READING,
 	WRITING,
 	CLOSING,
+};
+
+enum	WriteStage
+{
+	WRITE_HEADER,
+	WRITE_BODY,
+	WRITE_DONE
 };
 
 class Client
@@ -35,6 +44,9 @@ private:
 
 	void	_process_data(const char* data, size_t len);
 
+	bool	_send_header();
+	bool	_send_file_body();
+
 	int			_fd;
 	ClientState	_state;
 
@@ -44,6 +56,9 @@ private:
 	std::string	_write_buf;
 	size_t		_write_offset;
 
+	std::ifstream	_file_stream;
+	size_t			_file_remaining;
+	WriteStage		_write_stage;
 };
 
 
