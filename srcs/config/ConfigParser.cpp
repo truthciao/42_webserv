@@ -30,6 +30,8 @@ void ConfigParser::parse(Config& config) {
 	std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 	file.close();
 
+	_tokenize(content);
+	
 	while (_pos < _tokens.size()) {
 		std::string	token = _accept();
 		if (token == "server") {
@@ -236,7 +238,7 @@ LocationConfig ConfigParser::_parseLocation()
 		else if (directive == "autoindex") {
 			std::string value = _accept();
 			if (value != "on" && value != "off")
-				throw std::invalid_argument("autonidex must be 'on' or 'off'");
+				throw std::invalid_argument("autonidex must be 'on' or 'off', got: " + value);
 			loc.autoindex = (value == "on");
 			_expect(";");
 		}
@@ -244,7 +246,11 @@ LocationConfig ConfigParser::_parseLocation()
 		else if (directive == "allow_methods") {
 			bool has_methods = false;
 			while (_pos < _tokens.size() && _tokens[_pos] != ";") {
-				loc.allow_methods.insert(_accept());//塞入 std::set
+				std::string method = _accept();
+				if (method != "GET" && method != "POST" && method != "DELETE") {
+					throw std::invalid_argument("Invalid or unsupported HTTP method: " + method);
+				}
+				loc.allow_methods.insert(method);//塞入 std::set
 				has_methods = true;
 			}
 			if (!has_methods) {
@@ -254,18 +260,21 @@ LocationConfig ConfigParser::_parseLocation()
 		}
 
 		else if (directive == "return") {
-			loc.redirect_code =
-				std::atoi(_accept().c_str());
+			std::string code_str = _accept();
+			if (!_isValidErrorCode(code_str)) {
+				throw std::invalid_argument("Invalid redirect code: " + code_str);
+			}
+			loc.redirect_code = std::atoi(code_str.c_str());
 
 			loc.redirect_url = _accept();
-
+			if (loc.redirect_url == ";") {
+				throw std::invalid_argument("Missing redirect URL after code");
+			}
 			_expect(";");
 		}
 
 		else if (directive == "upload_enable") {
 			std::string value = _accept();
-            // 之前的代码: loc.upload_enable = (_accept() == "on");
-            // 危险！如果用户写了 upload_enable yes; 会被默默当成 off。必须严格拦截！
             if (value != "on" && value != "off")
                 throw std::invalid_argument("upload_enable must be 'on' or 'off', got: " + value);
             loc.upload_enable = (value == "on");
@@ -274,21 +283,27 @@ LocationConfig ConfigParser::_parseLocation()
 
 		else if (directive == "upload_store") {
 			loc.upload_store = _accept();
+			if (loc.upload_store == ";") {
+				throw std::invalid_argument("Directive 'upload_store' has no argument.");
+			}
 			_expect(";");
 		}
 
 		else if (directive == "cgi") {
 			std::string ext = _accept();
+			if (ext[0] != '.') {
+				throw std::invalid_argument("CGI extension must start with a dot (.), got: " + ext);
+			}
 			std::string path = _accept();
-
+			if (path == ";") {
+				throw std::invalid_argument("Missing CGI path for extention");
+			}
 			loc.cgi_ext_path[ext] = path;
-
 			_expect(";");
 		}
 
 		else {
-			throw std::runtime_error(
-				"Unknown location directive: " + directive);
+			throw std::runtime_error("Unknown location directive: " + directive);
 		}
 	}
 
