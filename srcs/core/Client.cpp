@@ -94,7 +94,9 @@ void	Client::_process_data(const char* data, size_t len)
 
 void	Client::prepare_reponse()
 {
-	// _request.print();
+	_request.print();
+	LOG_CLIENT_I() << "Body content: " << _request.get_body();
+
 	bool is_file_response = _response.build(_request.get_uri(), "./www");
 
 	_write_buf = _response.get_raw();

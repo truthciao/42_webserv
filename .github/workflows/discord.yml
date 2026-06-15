@@ -10,78 +10,66 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Send message to Discord
-        run: |
-          MENTION=""
-          ACTOR="${{ github.actor }}"
+    - name: Send message to Discord
+      run: |
+        ACTOR="${{ github.actor }}"
+        COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | head -1)
+        COMMIT_URL="${{ github.event.head_commit.url }}"
+        TIMESTAMP="${{ github.event.head_commit.timestamp }}"
+        EPOCH=$(date -d "$TIMESTAMP" +%s)
 
-          # if [ "$ACTOR" = "truthciao" ]; then
-          #   MENTION="<@1291448390420271185>"
-          # else
-          #   MENTION="<@738256818232623236>"
-          # fi
+        CHANGED_FILES=$(curl -s \
+          -H "Authorization: Bearer ${{ github.token }}" \
+          -H "Accept: application/vnd.github+json" \
+          "https://api.github.com/repos/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.sha }}" \
+          | jq -r '.files[].filename' \
+          | head -8)
 
-          COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | head -1)
-          COMMIT_URL="${{ github.event.head_commit.url }}"
-          TIMESTAMP="${{ github.event.head_commit.timestamp }}"
-          # AVATAR="https://github.com/$ACTOR.png"
-          EPOCH=$(date -d "$TIMESTAMP" +%s)
+        if [ -n "$CHANGED_FILES" ]; then
+          FILE_LIST=$(echo "$CHANGED_FILES" | sed 's/^/• `/' | sed 's/$/$/' | tr '\n' '\n' | awk '{print "• `" $0 "`"}')
+        else
+          FILE_LIST="• \`no file info\`"
+        fi
 
-          CHANGED_FILES=$(curl -s \
-            -H "Authorization: Bearer ${{ github.token }}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.sha }}" \
-            | jq -r '.files[].filename' \
-            | head -8)
-
-          if [ -n "$CHANGED_FILES" ]; then
-            FILE_LIST=$(echo "$CHANGED_FILES" | sed 's/^/• \`/' | sed 's/$/\`/' | paste -sd '\n')
-          else
-            FILE_LIST="• \`no file info\`"
-          fi
-
-          curl -H "Content-Type: application/json" \
-          -X POST \
-          -d "{
-            \"content\": \"$MENTION\",
-            \"embeds\": [{
-              \"title\": \"🚀 New merge to main\",
-              \"url\": \"$COMMIT_URL\",
-              \"color\": 5814783,
-              \"description\": \"\\u200b\",
-              # \"thumbnail\": {
-              #   \"url\": \"$AVATAR\"
-              # },
-              \"fields\": [
+        # 用 jq 构造 JSON，避免手动转义
+        PAYLOAD=$(jq -n \
+          --arg actor "$ACTOR" \
+          --arg commit_msg "$COMMIT_MSG" \
+          --arg commit_url "$COMMIT_URL" \
+          --arg file_list "$FILE_LIST" \
+          --argjson epoch "$EPOCH" \
+          '{
+            content: "",
+            embeds: [{
+              title: "🚀 New merge to main",
+              url: $commit_url,
+              color: 5814783,
+              description: "\u200b",
+              fields: [
                 {
-                  \"name\": \"\\u200b\",
-                  \"value\": \"👤 **Author:** \`$ACTOR\`\\n🕐 **Time:** <t:$EPOCH:R> (<t:$EPOCH:f>)\",
-                  \"inline\": false
+                  name: "\u200b",
+                  value: ("👤 **Author:** `" + $actor + "`\n🕐 **Time:** <t:" + ($epoch|tostring) + ":R> (<t:" + ($epoch|tostring) + ":f>)"),
+                  inline: false
                 },
+                { name: "\u200b", value: "\u200b", inline: false },
                 {
-                  \"name\": \"\\u200b\",
-                  \"value\": \"\\u200b\",
-                  \"inline\": false
+                  name: "📝 Commit Message",
+                  value: ("```" + $commit_msg + "```"),
+                  inline: false
                 },
+                { name: "\u200b", value: "\u200b", inline: false },
                 {
-                  \"name\": \"📝 Commit Message\",
-                  \"value\": \"\`\`\`$COMMIT_MSG\`\`\`\",
-                  \"inline\": false
-                },
-                {
-                  \"name\": \"\\u200b\",
-                  \"value\": \"\\u200b\",
-                  \"inline\": false
-                },
-                {
-                  \"name\": \"📂 Changed Files\",
-                  \"value\": \"$FILE_LIST\",
-                  \"inline\": false
+                  name: "📂 Changed Files",
+                  value: $file_list,
+                  inline: false
                 }
               ],
-              \"footer\": {
-                \"text\": \"42 webserv\"
-              }
+              footer: { text: "42 webserv" }
             }]
-          }" \
-          ${{ secrets.DISCORD_WEBHOOK }}
+          }')
+
+        # 加 -f 让 curl 在 4xx/5xx 时返回非零退出码，方便排查
+        curl -f -H "Content-Type: application/json" \
+          -X POST \
+          -d "$PAYLOAD" \
+          "${{ secrets.DISCORD_WEBHOOK }}"

@@ -9,6 +9,10 @@ enum RequestParseState
 	PARSE_HEADERS,
 	PARSE_BODY,
 	PARSE_COMPLETE,
+	PARSE_CHUNK_SIZE,
+	PARSE_CHUNK_DATA,
+	PARSE_CHUNK_CRLF,
+	PARSE_CHUNK_TRAILER,
 	PARSE_ERROR
 };
 
@@ -44,9 +48,14 @@ private:
 	std::string							_body;
 
 	size_t	_content_len;
+	bool	_is_chunked;
+	size_t	_chunk_size;
 
 	bool	parse_request_line(const std::string& line);
 	bool	parse_header_line(const std::string& line);
+	bool	parse_body();
+	bool	parse_chunked_body();
 
 	std::string trim(const std::string& s) const;
+	bool		hex_string_to_size(const std::string& s, size_t& out) const;
 };
