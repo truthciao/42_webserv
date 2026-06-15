@@ -78,6 +78,7 @@ void ConfigParser::_tokenize(const std::string& content) {
 ServerConfig ConfigParser::_parseServer()
 {
 	ServerConfig server;
+	LOG_CONFIG_D() << "Entering _parseServer() block...";
 
 	_expect("{");
 
@@ -127,6 +128,7 @@ ServerConfig ConfigParser::_parseServer()
 				}
 				server.port = std::atoi(port_str.c_str());
 			}
+			LOG_CONFIG_D() << "Parsed listen directive: " << server.host << ":" << server.port;
 			_expect(";");
 		}
 		
@@ -139,6 +141,8 @@ ServerConfig ConfigParser::_parseServer()
 					throw std::invalid_argument("Invalid IP format: " + server.host);
 				}
 			}
+			LOG_CONFIG_D() << "Parsed host: " << server.host;
+
 			_expect(";");
 		}
 
@@ -150,6 +154,8 @@ ServerConfig ConfigParser::_parseServer()
 				}
 				server.port = std::atoi(port_arg.c_str());
 			}
+			LOG_CONFIG_D() << "Parsed port: " << server.port;
+
 			_expect(";");
 		}
 
@@ -166,11 +172,15 @@ ServerConfig ConfigParser::_parseServer()
 			if (!has_arg) {
 				throw std::invalid_argument("Server_name requires at least one argument.");
 			}
+			LOG_CONFIG_D() << "Found server_name";
+
 			_expect(";");
 		}
 
 		else if (directive == "client_max_body_size") {
 			server.client_max_body_size = _parseBodySize(_accept());
+			LOG_CONFIG_D() << "Parsed client_max_body_size: " << server.client_max_body_size;
+
 			_expect(";");
 		}
 
@@ -189,10 +199,13 @@ ServerConfig ConfigParser::_parseServer()
 				throw std::invalid_argument("Error page path (should start with '/'): " + path);
 			}
 			server.error_pages[code] = path;
+			LOG_CONFIG_D() << "Found error_page";
 			_expect(";");
 		}
 
 		else if (directive == "location") {
+			LOG_CONFIG_D() << "Entering _parseLocation() block...";
+
 			server.locations.push_back(_parseLocation());
 		}
 
@@ -218,6 +231,8 @@ LocationConfig ConfigParser::_parseLocation()
 		throw std::invalid_argument("Location route must start with '/': " + route);
 	}
 	loc.route = route;
+	LOG_CONFIG_D() << "Parsed route: " << loc.route;
+
 	_expect("{");
 
 	while (_pos < _tokens.size() && _tokens[_pos] != "}") {

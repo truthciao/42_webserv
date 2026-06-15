@@ -2,6 +2,7 @@
 # define CONFIGPARSER_HPP
 
 # include "Config.hpp"
+# include "Logger.hpp"
 # include <string>
 # include <vector>
 # include <fstream>
