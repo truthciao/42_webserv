@@ -12,6 +12,8 @@
 Request::Request()
 	: _parse_state(PARSE_REQUEST_LINE)
 	, _content_len(0)
+	, _is_chunked(false)
+	, _chunk_size(0)
 {}
 
 Request::~Request() {}
@@ -26,6 +28,8 @@ void 	Request::reset()
 	_body.clear();
 	_parse_state = PARSE_REQUEST_LINE;
 	_content_len = 0;
+	_is_chunked = false;
+	_chunk_size = 0;
 }
 
 // ─────────────────────────────────────────────
@@ -67,15 +71,26 @@ bool	Request::feed(const char* data, size_t len)
 			{
 				if (line.empty())
 				{
-					std::map<std::string, std::string>::const_iterator it = _headers.find("content-length");
+					std::map<std::string, std::string>::const_iterator te_it = _headers.find("transfer-encoding");
+					std::map<std::string, std::string>::const_iterator cl_it = _headers.find("content-length");
 
-					if (it != _headers.end())
+					if (te_it != _headers.end())
 					{
-						std::istringstream iss(it->second);
+						std::string	te = te_it->second;
+						std::transform(te.begin(), te.end(), te.begin(), ::tolower);
+						if (te.find("chunked") != std::string::npos)
+							_is_chunked = true;
+					}
+
+					if (!_is_chunked && cl_it != _headers.end())
+					{
+						std::istringstream iss(cl_it->second);
 						iss >> _content_len;
 					}
 
-					if (_content_len > 0)
+					if (_is_chunked)
+						_parse_state = PARSE_CHUNK_SIZE;
+					else if (_content_len > 0)
 						_parse_state = PARSE_BODY;
 					else
 					{
@@ -83,7 +98,7 @@ bool	Request::feed(const char* data, size_t len)
 						return true;
 					}
 				}
-				if (!parse_header_line(line))
+				else if (!parse_header_line(line))
 				{
 					_parse_state = PARSE_ERROR;
 					return false;
@@ -92,14 +107,19 @@ bool	Request::feed(const char* data, size_t len)
 		}
 		else if (_parse_state == PARSE_BODY)
 		{
-			if (_raw_buf.size() < _content_len)
+			if (!parse_body())
 				break;
-
-			_body = _raw_buf.substr(0, _content_len);
-			_raw_buf.erase(0, _content_len);
-
-			_parse_state = PARSE_BODY;
 			return true;
+		}
+		else if (  _parse_state == PARSE_CHUNK_SIZE
+				|| _parse_state == PARSE_CHUNK_DATA
+				|| _parse_state == PARSE_CHUNK_CRLF
+				|| _parse_state == PARSE_CHUNK_TRAILER )
+		{
+			if (!parse_chunked_body())
+				break;
+			if (_parse_state == PARSE_COMPLETE)
+				return true;
 		}
 		else
 			break;
@@ -108,22 +128,133 @@ bool	Request::feed(const char* data, size_t len)
 	return (_parse_state == PARSE_COMPLETE);
 }
 
+// ─────────────────────────────────────────────
+// Content-Length body
+// ─────────────────────────────────────────────
+
+bool	Request::parse_body()
+{
+	if (_raw_buf.size() < _content_len)
+		return false;
+
+	_body = _raw_buf.substr(0, _content_len);
+	_raw_buf.erase(0, _content_len);
+
+	_parse_state = PARSE_COMPLETE;
+	return true;
+}
+
+// ─────────────────────────────────────────────
+// Chunked body
+//   chunk format: <hex-size>\r\n<data>\r\n ... 0\r\n\r\n
+// ─────────────────────────────────────────────
+
+bool	Request::hex_string_to_size(const std::string& s, size_t& out) const
+{
+	if (s.empty())
+		return false;
+
+	std::istringstream iss(s);
+	iss >> std::hex >> out;
+
+	return !iss.fail();
+}
+
+bool	Request::parse_chunked_body()
+{
+	while (true)
+	{
+		if (_parse_state == PARSE_CHUNK_SIZE)
+		{
+			size_t crlf_pos = _raw_buf.find("\r\n");
+			if (crlf_pos == std::string::npos)
+				return false;
+
+			std::string size_line = _raw_buf.substr(0, crlf_pos);
+			_raw_buf.erase(0, crlf_pos + 2);
+
+			//"size;ext=val"
+			size_t semi = size_line.find(';');
+			if (semi != std::string::npos)
+				size_line = size_line.substr(0, semi);
+			size_line = trim(size_line);
+
+			size_t chunk_size = 0;
+			if (!hex_string_to_size(size_line, chunk_size))
+			{
+				LOG_RESPONSE_E() << "Invalid chunk size: \"" << size_line << "\"";
+				_parse_state = PARSE_ERROR;
+				return false;
+			}
+
+			_chunk_size = chunk_size;
+
+			if (_chunk_size == 0)
+				_parse_state = PARSE_CHUNK_TRAILER;
+			else
+				_parse_state = PARSE_CHUNK_DATA;
+		}
+		else if (_parse_state == PARSE_CHUNK_DATA)
+		{
+			if (_raw_buf.size() < _chunk_size)
+				return false;
+
+			_body = _raw_buf.substr(0, _chunk_size);
+			_raw_buf.erase(0, _chunk_size);
+
+			_parse_state = PARSE_CHUNK_CRLF;
+		}
+		else if (_parse_state == PARSE_CHUNK_CRLF)
+		{
+			if (_raw_buf.size() < 2)
+				return false;
+
+			if (_raw_buf[0] != '\r' || _raw_buf[1] != '\n')
+			{
+				LOG_REQUEST_E() << "Malformed chunk terminator";
+				_parse_state = PARSE_ERROR;
+				return false;
+			}
+			_raw_buf.erase(0, 2);
+
+			_parse_state = PARSE_CHUNK_SIZE;
+		}
+		else if (_parse_state == PARSE_CHUNK_TRAILER)
+		{
+			size_t crlf_pos = _raw_buf.find("\r\n");
+			if (crlf_pos == std::string::npos)
+				return false;
+
+			std::string line = _raw_buf.substr(0, crlf_pos);
+			_raw_buf.erase(0, crlf_pos + 2);
+
+			_parse_state = PARSE_COMPLETE;
+			return true;
+		}
+		else
+			break;
+	}
+
+	return false;
+}
+
 bool	Request::parse_request_line(const std::string& line)
 {
 	std::istringstream iss(line);
 
 	if (!(iss >> _method >> _uri >> _version))
 	{
-		LOG_REQUEST_E() << "[Request] Malformed request line: \"" << line << "\"";
+		LOG_REQUEST_E() << "Malformed request line: \"" << line << "\"";
 		return false;
 	}
 
 	if (_version != "HTTP/1.0" && _version != "HTTP/1.1")
 	{
-		LOG_REQUEST_E() << "[Request] Unsupported HTTP version: " << _version;
+		LOG_REQUEST_E() << "Unsupported HTTP version: " << _version;
 		return false;
 	}
 
+	LOG_REQUEST_I() << "Requesting: " << _uri;
 	return true;
 }
 bool	Request::parse_header_line(const std::string& line)
@@ -131,7 +262,7 @@ bool	Request::parse_header_line(const std::string& line)
 	size_t	colon_pos = line.find(':');
 	if (colon_pos == std::string::npos)
 	{
-		LOG_REQUEST_E() << "[Request] Malformed header line: \"" << line << "\"";
+		LOG_REQUEST_E() << "Malformed header line: \"" << line << "\"";
 		return false;
 	}
 
@@ -144,7 +275,7 @@ bool	Request::parse_header_line(const std::string& line)
 
 	if (key.empty())
 	{
-		LOG_REQUEST_E() << "[Request] Empty header key";
+		LOG_REQUEST_E() << "Empty header key";
 		return false;
 	}
 

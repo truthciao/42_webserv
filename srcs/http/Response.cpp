@@ -84,19 +84,10 @@ bool	Response::build(const std::string& uri, const std::string& root)
 	size_t	file_size = 0;
 	if (file_exists(fs_path) && get_file_size_byptes(fs_path, file_size))
 	{
-		// std::string body;
-		// if (!read_file(fs_path, body))
-		// {
-		// 	build_error(403);
-		// 	LOG_RESPONSE_D() << fs_path << " open failed: 403";
-		// 	return;
-		// }
 		_status_code = 200;
 		_status_text = status_text(200);
-		// _body = body;
 		_file_path = fs_path;
 		_file_size = file_size;
-		// serialize(get_mime_type(fs_path));
 		build_file_header(get_mime_type(fs_path));
 		return true;
 	}
@@ -122,22 +113,6 @@ std::string	Response::get_mime_type(const std::string& path)
 	return "application/octet-stream";
 }
 
-// bool	Response::read_file(const std::string& path, std::string& body)
-// {
-// 	std::ifstream file(path.c_str(), std::ios::binary);
-// 	if (!file.is_open())
-// 	{
-// 		LOG_CGI_E() << "Error: open requested file failed!";
-// 		return false;
-// 	}
-
-// 	std::ostringstream oss;
-// 	oss << file.rdbuf();
-// 	body = oss.str();
-
-// 	return true;
-// }
-
 bool			Response::file_exists(const std::string& path)
 {
 	struct stat st;
@@ -158,7 +133,6 @@ bool Response::get_file_size_byptes(const std::string& path, size_t& out_size)
 	out_size = static_cast<size_t>(st.st_size);
 	return true;
 }
-
 
 std::string	Response::status_text(int code)
 {
@@ -186,11 +160,6 @@ void	Response::build_error(int code)
 			<< "</body></html>";
 	_body = body.str();
 
-	serialize("text/html");
-}
-
-void	Response::serialize(const std::string& content_type)
-{
 	std::ostringstream oss;
 	oss << _body.size();
 
@@ -198,13 +167,15 @@ void	Response::serialize(const std::string& content_type)
 	{
 		std::ostringstream h;
 		h	<< "HTTP/1.1 " << _status_code << " " << _status_text << "\r\n"
-			<< "Content-Type: " << content_type << "\r\n"
+			<< "Content-Type: " << "text/html" << "\r\n"
 			<< "Content-Length: " << _body.size() << "\r\n"
 			<< "Connection: close\r\n"
 			<< "\r\n";
 		header = h.str();
 	}
 	_raw = header + _body;
+
+	LOG_RESPONSE_D() << "Error response built successfully!";
 }
 
 void	Response::build_file_header( const std::string& content_type)

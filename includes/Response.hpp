@@ -31,7 +31,6 @@ private:
 	static bool			get_file_size_byptes(const std::string& path, size_t& out_size);
 
 	void	build_error(int code);
-	void	serialize(const std::string& content_type);
 	void	build_file_header(const std::string& content_type);
 
 	static std::map<std::string, std::string>	_mime_types;

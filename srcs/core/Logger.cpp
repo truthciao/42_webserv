@@ -7,7 +7,7 @@ Logger &Logger::instance()
 }
 
 Logger::Logger()
-    : min_level_(LOG_INFO)
+    : min_level_(LOG_DEBUG)
     , use_color_(true)
     , file_enabled_(false)
 {
