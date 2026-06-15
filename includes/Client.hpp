@@ -4,6 +4,7 @@
 #include "Response.hpp"
 
 #include <string>
+#include <deque>
 #include <unistd.h>
 #include <fstream>
 
@@ -22,6 +23,24 @@ enum	WriteStage
 	WRITE_HEADER,
 	WRITE_BODY,
 	WRITE_DONE
+};
+
+struct PendingResponse
+{
+	std::string	write_buf;
+	size_t		write_offset;
+
+	bool		is_file;
+	std::string	file_path;
+	size_t		file_remaining;
+	WriteStage	write_stage;
+
+	PendingResponse()
+		: write_offset(0)
+		, is_file(false)
+		, file_remaining(0)
+		, write_stage(WRITE_HEADER)
+	{}
 };
 
 class Client
@@ -44,8 +63,9 @@ private:
 
 	void	_process_data(const char* data, size_t len);
 
-	bool	_send_header();
-	bool	_send_file_body();
+	bool	_send_header(PendingResponse*);
+	bool	_send_file_body(PendingResponse*);
+	void	_start_next_response();
 
 	int			_fd;
 	ClientState	_state;
@@ -53,12 +73,9 @@ private:
 	Request		_request;
 	Response	_response;
 
-	std::string	_write_buf;
-	size_t		_write_offset;
+	std::deque<PendingResponse*> _response_queue;
 
 	std::ifstream	_file_stream;
-	size_t			_file_remaining;
-	WriteStage		_write_stage;
 };
 
 

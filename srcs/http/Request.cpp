@@ -244,16 +244,17 @@ bool	Request::parse_request_line(const std::string& line)
 
 	if (!(iss >> _method >> _uri >> _version))
 	{
-		LOG_REQUEST_E() << "[Request] Malformed request line: \"" << line << "\"";
+		LOG_REQUEST_E() << "Malformed request line: \"" << line << "\"";
 		return false;
 	}
 
 	if (_version != "HTTP/1.0" && _version != "HTTP/1.1")
 	{
-		LOG_REQUEST_E() << "[Request] Unsupported HTTP version: " << _version;
+		LOG_REQUEST_E() << "Unsupported HTTP version: " << _version;
 		return false;
 	}
 
+	LOG_REQUEST_I() << "Requesting: " << _uri;
 	return true;
 }
 bool	Request::parse_header_line(const std::string& line)
@@ -261,7 +262,7 @@ bool	Request::parse_header_line(const std::string& line)
 	size_t	colon_pos = line.find(':');
 	if (colon_pos == std::string::npos)
 	{
-		LOG_REQUEST_E() << "[Request] Malformed header line: \"" << line << "\"";
+		LOG_REQUEST_E() << "Malformed header line: \"" << line << "\"";
 		return false;
 	}
 
@@ -274,7 +275,7 @@ bool	Request::parse_header_line(const std::string& line)
 
 	if (key.empty())
 	{
-		LOG_REQUEST_E() << "[Request] Empty header key";
+		LOG_REQUEST_E() << "Empty header key";
 		return false;
 	}
 

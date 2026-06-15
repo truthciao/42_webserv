@@ -14,15 +14,17 @@
 Client::Client(int fd)
 	: _fd(fd)
 	, _state(READING)
-	, _write_offset(0)
-	, _file_remaining(0)
-	, _write_stage(WRITE_HEADER)
 {}
 
 Client::~Client()
 {
 	if (_file_stream.is_open())
 		_file_stream.close();
+
+	for (std::deque<PendingResponse*>::iterator it = _response_queue.begin();
+		 it != _response_queue.end(); ++it)
+		 delete *it;
+
 	if (_fd >= 0)
 		close(_fd);
 }
@@ -65,16 +67,18 @@ void	Client::_process_data(const char* data, size_t len)
 {
 	_request.feed(data, len);
 
-	if (_request.has_error())
+	while(true)
 	{
-		LOG_CLIENT_E() << "[-] Parse error on fd=" << _fd;
-		_state = CLOSING;
-		return ;
-	}
+		if (_request.has_error())
+		{
+			LOG_CLIENT_E() << "[-] Parse error on fd=" << _fd;
+			_state = CLOSING;
+			return ;
+		}
 
+		if (!_request.is_complete())
+			break;
 
-	if (_request.is_complete())
-	{
 		LOG_CLIENT_D() << "Request read complete!";
 
 		prepare_reponse();
@@ -82,8 +86,10 @@ void	Client::_process_data(const char* data, size_t len)
 		std::string leftover = _request.take_leftover();
 		_request.reset();
 
-		if (!leftover.empty())
-			_process_data(leftover.c_str(), leftover.size());
+		if (leftover.empty())
+			break;
+
+		_request.feed(leftover.c_str(), leftover.size());
 	}
 }
 
@@ -94,34 +100,31 @@ void	Client::_process_data(const char* data, size_t len)
 
 void	Client::prepare_reponse()
 {
-	_request.print();
-	LOG_CLIENT_I() << "Body content: " << _request.get_body();
+	// _request.print();
+	// LOG_CLIENT_I() << "Body content: " << _request.get_body();
+
+	PendingResponse* pr = new PendingResponse();
 
 	bool is_file_response = _response.build(_request.get_uri(), "./www");
 
-	_write_buf = _response.get_raw();
-	_write_offset = 0;
+	pr->write_buf		= _response.get_raw();
+	pr->write_offset	= 0;
+	pr->is_file			= is_file_response;
+	pr->write_stage		= WRITE_HEADER;
 
 	if (is_file_response)
 	{
-		_file_stream.open(_response.get_file_path().c_str(), std::ios::binary);
-		if (!_file_stream.is_open())
-		{
-			LOG_CLIENT_E() << "[-] Failed to open file for streaming: "
-						   << _response.get_file_path();
-			_state = CLOSING;
-			return;
-		}
-		_file_remaining = _response.get_file_size();
-		_write_stage = WRITE_HEADER;
+		pr->file_path		= _response.get_file_path();
+		pr->file_remaining	= _response.get_file_size();
 	}
-	else
-		_write_stage = WRITE_DONE;
 
-	LOG_CLIENT_D() << "Prepare reponse complete!";
+	_response_queue.push_back(pr);
+
+	LOG_CLIENT_D() << "Prepare reponse complete! Queue size = " << _response_queue.size();
 
 	_state = WRITING;
 }
+
 
 // ─────────────────────────────────────────────
 // Writing phase  (state == WRITING, poll watches POLLOUT)
@@ -129,43 +132,72 @@ void	Client::prepare_reponse()
 
 bool	Client::write_to_socket()
 {
-	if (_write_stage == WRITE_HEADER)
+	if (_response_queue.empty())
 	{
-		if (!_send_header())
+		_state = CLOSING;
+		return false;
+	}
+
+	PendingResponse* pr = _response_queue.front();
+
+	if (pr->write_stage == WRITE_HEADER)
+	{
+		if (!_send_header(pr))
 			return (_state != CLOSING) ? true : false;
 		LOG_CLIENT_D() << "Send header complete!";
-		_write_stage = (_file_stream.is_open()) ? WRITE_BODY : WRITE_DONE;
+
+		if (pr->is_file)
+		{
+			_file_stream.open(pr->file_path.c_str(), std::ios::binary);
+			if (!_file_stream.is_open())
+			{
+				LOG_CLIENT_E() << "[-] Failed to open file for streaming: "
+							<< _response.get_file_path();
+				_state = CLOSING;
+				return false;
+			}
+			pr->write_stage = WRITE_BODY;
+		}
+		else
+			pr->write_stage = WRITE_DONE;
 	}
 
-	if (_write_stage == WRITE_BODY)
+	if (pr->write_stage == WRITE_BODY)
 	{
-		if (!_send_file_body())
+		if (!_send_file_body(pr))
 			return (_state != CLOSING) ? true : false;
 		LOG_CLIENT_D() << "Send body complete!";
-		_write_stage = WRITE_DONE;
+		pr->write_stage = WRITE_DONE;
 	}
 
-	LOG_CLIENT_I() << "[+] Response sent to fd=" << _fd << ", closing";
+	delete pr;
+	_response_queue.pop_front();
+
+	if (!_response_queue.empty())
+		return true;
+
+	LOG_CLIENT_I() << "All responses sent to fd=" << _fd << ", closing";
+
 	_state = CLOSING;
 	return false;
 }
 
-bool	Client::_send_header()
+bool	Client::_send_header(PendingResponse* pr)
 {
-	while (_write_offset < _write_buf.size())
+	while (pr->write_offset < pr->write_buf.size())
 	{
-		size_t	remaining	= _write_buf.size() - _write_offset;
+		size_t	remaining	= pr->write_buf.size() - pr->write_offset;
 		size_t	to_send		= (remaining < SEND_CHUNK_SIZE) ? remaining : SEND_CHUNK_SIZE;
 
 		ssize_t bytes_written = send(
 			_fd,
-			_write_buf.c_str() + _write_offset,
+			pr->write_buf.c_str() + pr->write_offset,
 			to_send,
 			0
 		);
 
 		if (bytes_written > 0)
-			_write_offset += bytes_written;
+			pr->write_offset += bytes_written;
 		else if (bytes_written == 0)
 			break;
 		else
@@ -180,15 +212,15 @@ bool	Client::_send_header()
 	return true;
 }
 
-bool	Client::_send_file_body()
+bool	Client::_send_file_body(PendingResponse* pr)
 {
 	char chunk[SEND_CHUNK_SIZE];
 
-	while (_file_remaining > 0 || _write_offset < _write_buf.size())
+	while (pr->file_remaining > 0 || pr->write_offset < pr->write_buf.size())
 	{
-		if (_write_offset >= _write_buf.size())
+		if (pr->write_offset >= pr->write_buf.size())
 		{
-			size_t to_read = (_file_remaining < SEND_CHUNK_SIZE) ? _file_remaining : SEND_CHUNK_SIZE;
+			size_t to_read = (pr->file_remaining < SEND_CHUNK_SIZE) ? pr->file_remaining : SEND_CHUNK_SIZE;
 
 			_file_stream.read(chunk, static_cast<std::streamsize>(to_read));
 			std::streamsize got = _file_stream.gcount();
@@ -200,20 +232,20 @@ bool	Client::_send_file_body()
 				return false;
 			}
 
-			_write_buf.assign(chunk, static_cast<size_t>(got));
-			_write_offset = 0;
-			_file_remaining -= static_cast<size_t>(got);
+			pr->write_buf.assign(chunk, static_cast<size_t>(got));
+			pr->write_offset = 0;
+			pr->file_remaining -= static_cast<size_t>(got);
 		}
 
 		ssize_t bytes_written = send(
 			_fd,
-			_write_buf.c_str() + _write_offset,
-			_write_buf.size() - _write_offset,
+			pr->write_buf.c_str() + pr->write_offset,
+			pr->write_buf.size() - pr->write_offset,
 			MSG_NOSIGNAL
 		);
 
 		if (bytes_written > 0)
-			_write_offset += bytes_written;
+			pr->write_offset += bytes_written;
 		else if (bytes_written == 0)
 			break;
 		else
