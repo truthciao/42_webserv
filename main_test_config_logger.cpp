@@ -10,7 +10,7 @@
 #include "includes/Logger.hpp" // 引入你的 Logger
 
 
-//c++ -Wall -Wextra -Werror -std=c++98 main_test_config_logger.cpp srcs/config/ConfigParser.cpp srcs/config/Config.cpp srcs/core/Logger.cpp -I includes -o webserv_test
+// c++ -Wall -Wextra -Werror -std=c++98 main_test_config_logger.cpp srcs/config/ConfigParser.cpp srcs/config/Config.cpp srcs/core/Logger.cpp -I includes -o webserv_test
 //./webserv_test config/test.conf
 
 

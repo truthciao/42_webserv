@@ -207,6 +207,8 @@ ServerConfig ConfigParser::_parseServer()
 			LOG_CONFIG_D() << "Entering _parseLocation() block...";
 
 			server.locations.push_back(_parseLocation());
+
+			LOG_CONFIG_D() << "_parseLocation() block finished.";
 		}
 
 		else {
