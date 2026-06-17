@@ -199,7 +199,7 @@ bool	Request::parse_chunked_body()
 			if (_raw_buf.size() < _chunk_size)
 				return false;
 
-			_body = _raw_buf.substr(0, _chunk_size);
+			_body.append(_raw_buf, 0, _chunk_size);
 			_raw_buf.erase(0, _chunk_size);
 
 			_parse_state = PARSE_CHUNK_CRLF;
@@ -234,7 +234,6 @@ bool	Request::parse_chunked_body()
 		else
 			break;
 	}
-
 	return false;
 }
 

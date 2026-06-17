@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Request.hpp"
+#include "CgiHandler.hpp"
 #include "Response.hpp"
 
 #include <string>
@@ -15,6 +16,8 @@ enum ClientState
 {
 	READING,
 	WRITING,
+	CGI_WRITING_STDIN,
+	CGI_READING_STDOUT,
 	CLOSING,
 };
 

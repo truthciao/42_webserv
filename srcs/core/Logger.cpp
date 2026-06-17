@@ -7,7 +7,7 @@ Logger &Logger::instance()
 }
 
 Logger::Logger()
-    : min_level_(LOG_DEBUG)
+    : min_level_(LOG_INFO)
     , use_color_(true)
     , file_enabled_(false)
 {
@@ -100,7 +100,7 @@ std::string Logger::module_color(LogModule mod) const
         case MOD_REQUEST:  return BLUE;
         case MOD_RESPONSE: return MAGENTA;
         case MOD_CONFIG:   return YELLOW;
-        case MOD_CGI:      return WHITE;
+        case MOD_CGI:      return M_DBROWN;
         case MOD_FILE:     return CYAN;
         case MOD_SOCKET:   return GREEN;
         default:           return WHITE;
