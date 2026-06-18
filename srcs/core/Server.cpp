@@ -116,6 +116,7 @@ bool	Server::setup_one_listener(const ServerConfig& server_cfg)
 	s_pfd.events 	= POLLIN;
 	s_pfd.revents 	= 0;
 	_poll_fds.push_back(s_pfd);
+	_listen_fd_to_config[listen_fd] = &server_cfg;
 
 	LOG_SERVER_I() << "Server listening on " << server_cfg.host << ":" << server_cfg.port
 				   << " (non-blocking mode)";
@@ -225,7 +226,7 @@ void	Server::accept_connection(int listen_fd)
 
 		LOG_SERVER_I() << "[+] New connection: fd=" << client_fd
 				  << " on port " << owning_config->port
-				  << " (total clients: " << _clients.size() - 1 << ")";
+				  << " (total clients: " << _clients.size() << ")";
 	}
 }
 
@@ -304,6 +305,5 @@ void	Server::remove_client(int fd)
 				  << " (active clients: " << _clients.size() << ")";
 	}
 }
-
 
 
