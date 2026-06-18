@@ -3,6 +3,7 @@
 #include "Request.hpp"
 #include "CgiHandler.hpp"
 #include "Response.hpp"
+#include "Config.hpp"
 
 #include <string>
 #include <deque>
@@ -49,7 +50,7 @@ struct PendingResponse
 class Client
 {
 public:
-	explicit Client(int fd);
+	Client(int fd, const ServerConfig* server_config);
 	~Client();
 
 	bool	read_from_socket();
@@ -70,8 +71,9 @@ private:
 	bool	_send_file_body(PendingResponse*);
 	void	_start_next_response();
 
-	int			_fd;
-	ClientState	_state;
+	int					_fd;
+	ClientState			_state;
+	const ServerConfig*	_server_config;
 
 	Request		_request;
 	Response	_response;

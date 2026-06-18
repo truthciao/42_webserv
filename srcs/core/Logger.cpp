@@ -7,7 +7,7 @@ Logger &Logger::instance()
 }
 
 Logger::Logger()
-    : min_level_(LOG_INFO)
+    : min_level_(LOG_DEBUG)
     , use_color_(true)
     , file_enabled_(false)
 {
@@ -71,7 +71,7 @@ std::string Logger::get_timestamp() const
     time_t     now = time(NULL);
     struct tm *t   = localtime(&now);
     char buf[32];
-    std::sprintf(buf, "%02d:%02d:%02d", t->tm_hour, t->tm_min, t->tm_sec);
+    std::snprintf(buf, sizeof(buf), "%02d:%02d:%02d", t->tm_hour, t->tm_min, t->tm_sec);
     return std::string(buf);
 }
 

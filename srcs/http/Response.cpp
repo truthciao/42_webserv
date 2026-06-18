@@ -47,8 +47,26 @@ std::map<std::string, std::string>	Response::init_mime_types()
 // Public interface
 // ─────────────────────────────────────────────
 
-bool	Response::build(const std::string& uri, const std::string& root)
+bool	Response::build(	const std::string& method,
+							const std::string& uri,
+							const ServerConfig& server,
+							const LocationConfig& location)
 {
+	if (!location.allow_methods.empty() &&
+		location.allow_methods.find(method) == location.allow_methods.end())
+	{
+		build_error(server, 405);
+		LOG_RESPONSE_D() << "Method " << method << " not allowed on " << location.route << ": 405";
+		return false;
+	}
+
+	if (location.redirect_code != 0)
+	{
+		build_redirect(location.redirect_code, location.redirect_url);
+		LOG_RESPONSE_D() << "Location " << location.route << " redirects to " << location.redirect_url;
+		return false;
+	}
+
 	std::string		path = uri;
 	const size_t	q = path.find('?');
 	if (q != std::string::npos)
@@ -61,7 +79,7 @@ bool	Response::build(const std::string& uri, const std::string& root)
 		return false;
 	}
 
-	std::string fs_path = root + path;
+	std::string fs_path = location.root + path;
 
 	if (is_directory(fs_path))
 	{
@@ -78,7 +96,7 @@ bool	Response::build(const std::string& uri, const std::string& root)
 			return false;
 		}
 		else
-			fs_path += "index.html";
+			fs_path += location.index.empty() ? "index.html" : location.index;
 	}
 
 	size_t	file_size = 0;
@@ -97,6 +115,13 @@ bool	Response::build(const std::string& uri, const std::string& root)
 		LOG_RESPONSE_D() << fs_path << " : file doesn't exit: 404";
 		return false;
 	}
+}
+
+bool	Response::build_no_location()
+{
+	build_error(404);
+	LOG_RESPONSE_D() << "No location matched this uri: 404";
+	return false;
 }
 
 std::string	Response::get_mime_type(const std::string& path)
@@ -149,6 +174,33 @@ std::string	Response::status_text(int code)
 	}
 }
 
+bool	Response::try_server_custom_error_page(const ServerConfig& server, int code)
+{
+	std::map<int, std::string>::const_iterator it = server.error_pages.find(code);
+	if (it == server.error_pages.end())
+		return false;
+
+	std::string fs_path = "." + it->second;
+	size_t		file_size = 0;
+
+	_status_code = code;
+	_status_text = status_text(code);
+	_file_path = fs_path;
+	_file_size = file_size;
+	build_file_header(get_mime_type(fs_path));
+	return true;
+}
+
+void	Response::build_error(const ServerConfig& server, int code)
+{
+	if (try_server_custom_error_page(server, code))
+	{
+		LOG_RESPONSE_D() << "Served custom error page for code " << code;
+		return;
+	}
+	build_error(code);
+}
+
 void	Response::build_error(int code)
 {
 	_status_code = code;
@@ -159,9 +211,6 @@ void	Response::build_error(int code)
 			<< "<h1>" << code << " " << _status_text << "</h1>"
 			<< "</body></html>";
 	_body = body.str();
-
-	std::ostringstream oss;
-	oss << _body.size();
 
 	std::string header;
 	{
@@ -176,6 +225,20 @@ void	Response::build_error(int code)
 	_raw = header + _body;
 
 	LOG_RESPONSE_D() << "Error response built successfully!";
+}
+
+void	Response::build_redirect(int code, const std::string& location_url)
+{
+	_status_code = code;
+	_status_text = status_text(code);
+
+	std::ostringstream h;
+	h	<< "HTTP/1.1 " << _status_code << " " << _status_text << "\r\n"
+		<< "Location: " << location_url << "\r\n"
+		<< "Content-Length: 0\r\n"
+		<< "Connection: close\r\n"
+		<< "\r\n";
+	_raw = h.str();
 }
 
 void	Response::build_file_header( const std::string& content_type)

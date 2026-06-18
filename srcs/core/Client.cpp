@@ -1,5 +1,6 @@
 #include "Client.hpp"
 #include "Logger.hpp"
+#include "Router.hpp"
 
 #include <iostream>
 #include <sys/socket.h>
@@ -11,9 +12,10 @@
 // Construction / Destruction
 // ─────────────────────────────────────────────
 
-Client::Client(int fd)
+Client::Client(int fd, const ServerConfig* server_config)
 	: _fd(fd)
 	, _state(READING)
+	, _server_config(server_config)
 {}
 
 Client::~Client()
@@ -101,11 +103,19 @@ void	Client::_process_data(const char* data, size_t len)
 void	Client::prepare_reponse()
 {
 	// _request.print();
-	// LOG_CLIENT_I() << "Body content: " << _request.get_body();
+	// LOG_CLIENT_D() << "Body content: " << _request.get_body();
 
 	PendingResponse* pr = new PendingResponse();
 
-	bool is_file_response = _response.build(_request.get_uri(), "./www");
+	LocationConfig	matched_location;
+	bool	has_location = Router::match(*_server_config, _request.get_uri(), matched_location);
+
+	bool	is_file_response;
+	if (!has_location)
+		is_file_response = _response.build_no_location();
+	else
+		is_file_response = _response.build(_request.get_method(), _request.get_uri(),
+											*_server_config, matched_location);
 
 	pr->write_buf		= _response.get_raw();
 	pr->write_offset	= 0;
@@ -124,7 +134,6 @@ void	Client::prepare_reponse()
 
 	_state = WRITING;
 }
-
 
 // ─────────────────────────────────────────────
 // Writing phase  (state == WRITING, poll watches POLLOUT)

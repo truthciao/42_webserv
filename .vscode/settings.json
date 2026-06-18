@@ -1,0 +1,15 @@
+{
+    "C_Cpp.default.configurationProvider": "",
+    "C_Cpp.default.cStandard": "c17",
+    "C_Cpp.default.cppStandard": "c++98",
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/includes",
+        "${workspaceFolder}/srcs"
+    ],
+    "C_Cpp.default.compilerArgs": [
+        "-std=c++98",
+        "-I${workspaceFolder}/includes"
+    ],
+    "C_Cpp.errorSquiggles": "enabled"
+}

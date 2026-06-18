@@ -133,7 +133,7 @@ bool	CgiHandler::start(	const std::string& script_path,
 		LOG_CGI_E() << "pipe(stdin) failed: " << strerror(errno);
 		return false;
 	}
-	if (pipe(_stdin_fd) == -1)
+	if (pipe(_stdout_fd) == -1)
 	{
 		LOG_CGI_E() << "pipe(stdout) failed: " << strerror(errno);
 		close_stdin_fd();
