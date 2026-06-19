@@ -76,7 +76,7 @@ bool	Response::build(	const std::string& method,
 	{
 		build_error(403);
 		LOG_RESPONSE_D() << "Try to acess /.. : 403";
-		return false;
+		return true;
 	}
 
 	std::string fs_path = location.root + path;
@@ -111,9 +111,9 @@ bool	Response::build(	const std::string& method,
 	}
 	else
 	{
-		build_error(404);
+		build_error(server, 404);
 		LOG_RESPONSE_D() << fs_path << " : file doesn't exit: 404";
-		return false;
+		return true;
 	}
 }
 
@@ -183,13 +183,18 @@ bool	Response::try_server_custom_error_page(const ServerConfig& server, int code
 	std::string fs_path = "." + it->second;
 	size_t		file_size = 0;
 
-	_status_code = code;
-	_status_text = status_text(code);
-	_file_path = fs_path;
-	_file_size = file_size;
-	build_file_header(get_mime_type(fs_path));
-	return true;
+	if (file_exists(fs_path) && get_file_size_byptes(fs_path, file_size))
+	{
+		_status_code = 200;
+		_status_text = status_text(200);
+		_file_path = fs_path;
+		_file_size = file_size;
+		build_file_header(get_mime_type(fs_path));
+		return true;
+	}
+	return false;
 }
+
 
 void	Response::build_error(const ServerConfig& server, int code)
 {

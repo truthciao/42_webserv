@@ -137,8 +137,6 @@ void	Server::run()
 {
 	while (g_running)
 	{
-		LOG_SERVER_D() << "event loop running";
-
 		int ready = poll(_poll_fds.data(), _poll_fds.size(), -1);
 		if (ready < 0)
 		{
