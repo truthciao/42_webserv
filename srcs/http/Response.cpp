@@ -121,7 +121,7 @@ bool	Response::build_no_location()
 {
 	build_error(404);
 	LOG_RESPONSE_D() << "No location matched this uri: 404";
-	return false;
+	return true;
 }
 
 std::string	Response::get_mime_type(const std::string& path)

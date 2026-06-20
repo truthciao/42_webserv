@@ -145,9 +145,9 @@ bool	CgiHandler::start(	const std::string& script_path,
 
 	_stdin_done = _request_body.empty();
 
-	pid_t pid = fork();
+	_pid = fork();
 
-	if (pid < 0)
+	if (_pid < 0)
 	{
 		LOG_CGI_E() << "fork failed: " << strerror(errno);
 		close_stdin_fd();
@@ -155,7 +155,7 @@ bool	CgiHandler::start(	const std::string& script_path,
 		_state = CGI_ERROR;
 		return false;
 	}
-	if (pid == 0)
+	if (_pid == 0)
 	{
 		if (dup2(_stdin_fd[READ_END], STDIN_FILENO) == -1)
 		{
@@ -183,18 +183,21 @@ bool	CgiHandler::start(	const std::string& script_path,
 		_exit(1);
 	}
 
-	int flags;
+	close(_stdin_fd[READ_END]);
+	close(_stdout_fd[WRITE_END]);
 
 	if(fcntl(_stdin_fd[WRITE_END], F_SETFL, O_NONBLOCK) == -1)
 	{
 		LOG_CGI_E() << "fcntl O_NONBLOCK failed on stdin_fd=" << _stdin_fd[WRITE_END]
 				  << ": " << strerror(errno);
+		_state = CGI_ERROR;
 		return false;
 	}
 	if(fcntl(_stdout_fd[READ_END], F_SETFL, O_NONBLOCK) == -1)
 	{
 		LOG_CGI_E() << "fcntl O_NONBLOCK failed on stdout_fd=" << _stdout_fd[READ_END]
 				  << ": " << strerror(errno);
+		_state = CGI_ERROR;
 		return false;
 	}
 
@@ -216,7 +219,10 @@ bool	CgiHandler::start(	const std::string& script_path,
 bool	CgiHandler::write_to_stdin()
 {
 	if (_stdin_done)
+	{
+		close_stdin_fd();
 		return false;
+	}
 
 	size_t	remaining = _request_body.size() - _body_offset;
 	size_t	to_write = (remaining < CGI_CHUNK) ? remaining : CGI_CHUNK;
@@ -268,7 +274,7 @@ bool	CgiHandler::read_from_stdout()
 		close_stdout_fd();
 		return false;
 	}
-	else if (n < 0)
+	else
 	{
 		if (errno == EAGAIN || errno == EWOULDBLOCK)
 			return true;
@@ -284,7 +290,7 @@ bool	CgiHandler::read_from_stdout()
 void	CgiHandler::check_child_status()
 {
 	if (_pid <= 0 || _state != CGI_RUNNING)
-		true;
+		return;
 
 	if (time(NULL) - _start_time > CGI_TIMEOUT_SECONDS)
 	{
@@ -299,8 +305,15 @@ void	CgiHandler::check_child_status()
 	if (ret == _pid)
 	{
 		if (_stdout_done)
+		{
 			_state = CGI_DONE;
-		LOG_CGI_D() << "pid=" << _pid << " exited, status=" << status;
+			LOG_CGI_D() << "pid=" << _pid << " exited normally, status=" << status;
+		}
+		else
+		{
+			_state = CGI_ERROR;
+        	LOG_CGI_E() << "pid=" << _pid << " exited but stdout not done, status=" << status;
+		}
 	}
 }
 void	CgiHandler::kill_child()

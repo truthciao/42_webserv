@@ -14,8 +14,8 @@ public:
 					const std::string& uri,
 					const ServerConfig& server,
 					const LocationConfig& location);
-
 	bool	build_no_location();
+	void	build_error(const ServerConfig& server, int code);
 
 	const std::string&	get_raw() const { return _raw; }
 	const std::string&	get_file_path() const { return _file_path; }
@@ -38,7 +38,6 @@ private:
 
 	bool	try_server_custom_error_page(const ServerConfig& server, int code);
 	void	build_error(int code);
-	void	build_error(const ServerConfig& server, int code);
 	void	build_redirect(int code, const std::string& location_url);
 	void	build_file_header(const std::string& content_type);
 

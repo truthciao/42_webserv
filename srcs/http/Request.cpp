@@ -256,6 +256,7 @@ bool	Request::parse_request_line(const std::string& line)
 	LOG_REQUEST_I() << "Requesting: " << _uri;
 	return true;
 }
+
 bool	Request::parse_header_line(const std::string& line)
 {
 	size_t	colon_pos = line.find(':');

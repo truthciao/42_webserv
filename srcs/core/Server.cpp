@@ -38,6 +38,7 @@ Server::~Server()
 // ─────────────────────────────────────────────
 // Setup
 // ─────────────────────────────────────────────
+
 bool Server::set_nonblocking(int fd)
 {
 	if(fcntl(fd, F_SETFL, O_NONBLOCK) == -1)
@@ -137,7 +138,20 @@ void	Server::run()
 {
 	while (g_running)
 	{
-		int ready = poll(_poll_fds.data(), _poll_fds.size(), -1);
+		bool has_cgi = false;
+		for(std::map<int, Client*>::iterator it = _clients.begin();
+			it != _clients.end(); ++it)
+		{
+			ClientState st = it->second->get_state();
+			if (st == CGI_WRITING_STDIN || st == CGI_READING_STDOUT)
+			{
+				has_cgi = true;
+				break;
+			}
+		}
+		int	timeout_ms = has_cgi ? 1000 : -1;
+
+		int ready = poll(_poll_fds.data(), _poll_fds.size(), timeout_ms);
 		if (ready < 0)
 		{
 			if (errno == EINTR)
@@ -145,6 +159,9 @@ void	Server::run()
 			LOG_SERVER_E() << "poll() failed: " << strerror(errno);
 			break;
 		}
+
+		for (std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); ++it)
+			it->second->check_cgi_timeout();
 
 		const size_t	n = _poll_fds.size();
 		bool			need_rebuild = false;
@@ -157,6 +174,13 @@ void	Server::run()
 
 			int	fd = _poll_fds[idx].fd;
 
+			if (_cgi_fds.count(fd))
+			{
+				handle_cgi_fd(fd, _poll_fds[idx].revents);
+				need_rebuild = true;
+				continue;
+			}
+
 			if (_poll_fds[idx].revents & (POLLERR | POLLHUP | POLLNVAL))
 			{
 				if (is_listening_fd(fd))
@@ -164,7 +188,7 @@ void	Server::run()
 					LOG_SERVER_E() << "Listening socket error on fd=" << fd;
 					return ;
 				}
-				LOG_SERVER_E() << "[-] Error on fd=" << fd << ", closing";
+				LOG_SERVER_E() << "Error on client fd=" << fd << ", closing";
 				remove_client(fd);
 				need_rebuild = true;
 				continue;
@@ -188,6 +212,7 @@ void	Server::run()
 			rebuild_poll_array();
 	}
 }
+
 // ─────────────────────────────────────────────
 // Accept loop
 // ─────────────────────────────────────────────
@@ -231,6 +256,7 @@ void	Server::accept_connection(int listen_fd)
 void	Server::rebuild_poll_array()
 {
 	_poll_fds.clear();
+	_cgi_fds.clear();
 
 	for (std::map<int, const ServerConfig*>::iterator it = _listen_fd_to_config.begin();
 		 it != _listen_fd_to_config.end(); ++it)
@@ -246,16 +272,47 @@ void	Server::rebuild_poll_array()
 	{
 		int fd 			= it->first;
 		Client* client 	= it->second;
+		ClientState	state = client->get_state();
+
+		if (state == CGI_WRITING_STDIN || state == CGI_READING_STDOUT)
+		{
+			int stdin_fd = client->get_cgi_stdin_fd();
+			int stdout_fd = client->get_cgi_stdout_fd();
+
+			if (stdin_fd >= 0)
+			{
+				struct pollfd pfd;
+				pfd.fd		= stdin_fd;
+				pfd.events	= POLLOUT;
+				pfd.revents	= 0;
+				_poll_fds.push_back(pfd);
+
+				CgiFdInfo	info;
+				info.client_fd	= fd;
+				info.type		= CGI_FD_STDIN;
+				_cgi_fds[stdin_fd] = info;
+			}
+
+			if (stdout_fd >= 0)
+			{
+				struct pollfd pfd;
+				pfd.fd		= stdout_fd;
+				pfd.events	= POLLIN;
+				pfd.revents	= 0;
+				_poll_fds.push_back(pfd);
+
+				CgiFdInfo	info;
+				info.client_fd	= fd;
+				info.type		= CGI_FD_STDOUT;
+				_cgi_fds[stdout_fd] = info;
+			}
+			continue;
+		}
 
 		struct pollfd pfd;
 		pfd.fd		= fd;
 		pfd.revents	= 0;
-
-		if (client->get_state() == READING)
-			pfd.events = POLLIN;
-		else
-			pfd.events = POLLOUT;
-
+		pfd.events =  state == READING ? POLLIN : POLLOUT;
 		_poll_fds.push_back(pfd);
 	}
 }
@@ -288,8 +345,43 @@ void	Server::handle_client(int fd)
 			return;
 		}
 	}
+	else if (client->get_state() == CGI_WRITING_STDIN || client->get_state() == CGI_READING_STDOUT)
+		LOG_CLIENT_W() << "handle_client called in CGI state on fd=" << fd;
 	else
 		remove_client(fd);
+}
+
+void	Server::handle_cgi_fd(int fd, short revents)
+{
+	std::map<int, CgiFdInfo>::iterator cgi_it = _cgi_fds.find(fd);
+	if (cgi_it == _cgi_fds.end())
+		return;
+
+	int			client_fd = cgi_it->second.client_fd;
+	CgiFdType	type	  = cgi_it->second.type;
+
+	std::map<int, Client*>::iterator client_it = _clients.find(client_fd);
+	if (client_it == _clients.end())
+	{
+		LOG_SERVER_E() << "The client fd=" << client_fd << " corresponding to this cgi_fd=" << cgi_it->first << " doesn't exist.";
+		return;
+	}
+
+	Client* client = client_it->second;
+
+	if (type == CGI_FD_STDIN)
+	{
+		if (revents & (POLLOUT | POLLERR | POLLHUP))
+			client->handle_cgi_stdin_writable();
+	}
+	else
+	{
+		if (revents & (POLLIN | POLLERR | POLLHUP))
+			client->handle_cgi_stdout_readable();
+	}
+
+	if (client->get_state() == CLOSING)
+		remove_client(client_fd);
 }
 
 void	Server::remove_client(int fd)

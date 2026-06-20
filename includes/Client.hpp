@@ -7,6 +7,7 @@
 
 #include <string>
 #include <deque>
+#include <map>
 #include <unistd.h>
 #include <fstream>
 
@@ -57,9 +58,16 @@ public:
 	bool	write_to_socket();
 	void	prepare_reponse();
 
-	int			get_fd()	const { return _fd; }
-	ClientState	get_state()	const { return _state; }
-	bool		request_complete() const { return _request.is_complete(); }
+	int			get_fd()			const { return _fd; }
+	ClientState	get_state()			const { return _state; }
+	bool		request_complete()	const { return _request.is_complete(); }
+
+	int		get_cgi_stdin_fd()	const;
+	int		get_cgi_stdout_fd()	const;
+
+	void	handle_cgi_stdin_writable();
+	void	handle_cgi_stdout_readable();
+	void	check_cgi_timeout();
 
 private:
 	Client(const Client&);
@@ -71,6 +79,23 @@ private:
 	bool	_send_file_body(PendingResponse*);
 	void	_start_next_response();
 
+	bool	_detect_cgi(	const std::string& uri,
+							const LocationConfig& loc,
+							std::string& out_script_path,
+							std::string& out_interpreter,
+							std::string& out_cwd)	const;
+
+	void	_start_cgi(	const std::string& script_path,
+						const std::string& interpreter,
+						const std::string& cwd,
+						const LocationConfig& loc);
+
+	std::map<std::string, std::string>	_build_cgi_env(	const std::string& script_path,
+														const LocationConfig& loc)	const;
+
+	void	_finish_cgi();
+	void	_enqueue_raw_response(const std::string& raw);
+
 	int					_fd;
 	ClientState			_state;
 	const ServerConfig*	_server_config;
@@ -79,8 +104,9 @@ private:
 	Response	_response;
 
 	std::deque<PendingResponse*> _response_queue;
+	std::ifstream				_file_stream;
 
-	std::ifstream	_file_stream;
+	CgiHandler*	_cgi;
 };
 
 

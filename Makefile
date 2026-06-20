@@ -20,6 +20,7 @@ SRCS_FILES	= main.cpp \
 			  core/Server.cpp \
 			  core/Client.cpp \
 			  core/Logger.cpp \
+			  core/CgiHandler.cpp \
 			  http/Request.cpp \
 			  http/Response.cpp \
 			  http/Router.cpp \
