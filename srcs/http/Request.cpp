@@ -253,7 +253,7 @@ bool	Request::parse_request_line(const std::string& line)
 		return false;
 	}
 
-	LOG_REQUEST_I() << "Requesting: " << _uri;
+	LOG_REQUEST_I() << "Requesting: " << _uri << ", method: " << _method;
 	return true;
 }
 
