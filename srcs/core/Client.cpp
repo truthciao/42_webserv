@@ -109,14 +109,13 @@ void	Client::prepare_reponse()
 {
 	// _request.print();
 	// LOG_CLIENT_D() << "Body content: " << _request.get_body();
-
-	PendingResponse* pr = new PendingResponse();
-
 	LocationConfig	matched_loc;
 	bool	has_location = Router::match(*_server_config, _request.get_uri(), matched_loc);
 
 	if (!has_location)
 	{
+		PendingResponse* pr = new PendingResponse();
+
 		_response.build_no_location();
 		pr->write_buf		= _response.get_raw();
 		pr->write_offset	= 0;
@@ -134,9 +133,9 @@ void	Client::prepare_reponse()
 		return;
 	}
 
+	PendingResponse* pr = new PendingResponse();
 	bool is_file_response = _response.build(_request.get_method(), _request.get_uri(),
 											*_server_config, matched_loc);
-
 	pr->write_buf		= _response.get_raw();
 	pr->write_offset	= 0;
 	pr->is_file			= is_file_response;

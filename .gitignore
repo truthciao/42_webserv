@@ -2,3 +2,5 @@ a.out
 webserv
 webserv_test
 objs/
+tester
+cgi_tester

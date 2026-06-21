@@ -185,6 +185,8 @@ bool	CgiHandler::start(	const std::string& script_path,
 
 	close(_stdin_fd[READ_END]);
 	close(_stdout_fd[WRITE_END]);
+	_stdin_fd[READ_END] = -1;
+	_stdout_fd[WRITE_END] = -1;
 
 	if(fcntl(_stdin_fd[WRITE_END], F_SETFL, O_NONBLOCK) == -1)
 	{
@@ -259,7 +261,6 @@ bool	CgiHandler::write_to_stdin()
 bool	CgiHandler::read_from_stdout()
 {
 	char buf[CGI_CHUNK];
-
 	ssize_t	n = read(_stdout_fd[READ_END], buf, sizeof(buf));
 
 	if (n > 0)
