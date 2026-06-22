@@ -164,6 +164,8 @@ std::string	Response::status_text(int code)
 	switch (code)
 	{
 		case 200: return "OK";
+		case 201: return "Created";
+		case 204: return "No Content";
 		case 301: return "Moved Permanently";
 		case 400: return "Bad Request";
 		case 403: return "Forbidden";
@@ -255,4 +257,62 @@ void	Response::build_file_header( const std::string& content_type)
 		<< "Connection: close\r\n"
 		<< "\r\n";
 	_raw = h.str();
+}
+
+void	Response::build_upload_ok(const std::string& filename)
+{
+	_status_code = 201;
+	_status_text = status_text(_status_code);
+
+	std::ostringstream body;
+    body << "<html><body>"
+         << "<h2>Upload successful</h2>"
+         << "<p>File <strong>" << filename << "</strong> has been uploaded.</p>"
+         << "</body></html>";
+    _body = body.str();
+
+	std::ostringstream h;
+    std::ostringstream h;
+    h << "HTTP/1.1 " << _status_code << " " <<  _status_text << "\r\n"
+      << "Content-Type: text/html\r\n"
+      << "Content-Length: " << _body.size() << "\r\n"
+      << "Connection: close\r\n"
+      << "\r\n"
+      << _body;
+	_raw = h.str();
+
+    LOG_RESPONSE_I() << "201 Created: uploaded " << filename;
+}
+void	Response::build_delete_ok()
+{
+	_status_code = 204;
+	_status_text = status_text(_status_code);
+
+    std::ostringstream h;
+    h << "HTTP/1.1 " << _status_code << " " <<  _status_text << "\r\n"
+      << "Content-Length: 0\r\n"
+      << "Connection: close\r\n"
+      << "\r\n";
+    _raw = h.str();
+
+    LOG_RESPONSE_I() << "204 No Content: resource deleted";
+}
+
+void	Response::build_autoindex(const std::string& uri, const std::string& html_body)
+{
+	(void)uri;
+	_status_code = 200;
+	_status_text = status_text(_status_code);
+	_body		 = html_body;
+
+	std::ostringstream h;
+    h << "HTTP/1.1 " << _status_code << " " <<  _status_text << "\r\n"
+      << "Content-Type: text/html; charset=UTF-8\r\n"
+      << "Content-Length: " << _body.size() << "\r\n"
+      << "Connection: close\r\n"
+      << "\r\n"
+      << _body;
+    _raw = h.str();
+
+    LOG_RESPONSE_D() << "Autoindex page generated, size=" << _body.size();
 }

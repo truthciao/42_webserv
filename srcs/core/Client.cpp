@@ -1,6 +1,8 @@
 #include "Client.hpp"
 #include "Logger.hpp"
 #include "Router.hpp"
+#include "MultipartParser.hpp"
+#include "Autoindex.hpp"
 
 #include <iostream>
 #include <sys/socket.h>
@@ -109,7 +111,7 @@ void	Client::prepare_reponse()
 {
 	_request.print();
 	LOG_CLIENT_D() << "Body content: " << _request.get_body();
-	
+
 	LocationConfig	matched_loc;
 	bool	has_location = Router::match(*_server_config, _request.get_uri(), matched_loc);
 

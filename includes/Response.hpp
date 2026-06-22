@@ -16,6 +16,9 @@ public:
 					const LocationConfig& location);
 	bool	build_no_location();
 	void	build_error(const ServerConfig& server, int code);
+	void	build_upload_ok(const std::string& filename);
+	void	build_delete_ok();
+	void	build_autoindex(const std::string& uri, const std::string& html_body);
 
 	const std::string&	get_raw() const { return _raw; }
 	const std::string&	get_file_path() const { return _file_path; }

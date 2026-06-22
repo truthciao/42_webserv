@@ -301,18 +301,18 @@ std::string Request::trim(const std::string& s) const
 
 void    Request::print() const
 {
-	LOG_REQUEST_I() << "=== Parsed Request ===";
-	LOG_REQUEST_I() << "Method  : " << _method ;
-	LOG_REQUEST_I() << "URI     : " << _uri    ;
-	LOG_REQUEST_I() << "Version : " << _version;
-	LOG_REQUEST_I() << "Headers :";
+	LOG_REQUEST_D() << "=== Parsed Request ===";
+	LOG_REQUEST_D() << "Method  : " << _method ;
+	LOG_REQUEST_D() << "URI     : " << _uri    ;
+	LOG_REQUEST_D() << "Version : " << _version;
+	LOG_REQUEST_D() << "Headers :";
 
 	for (std::map<std::string, std::string>::const_iterator it = _headers.begin();
 		 it != _headers.end(); ++it)
 	{
-		LOG_REQUEST_I() << "  [" << it->first << "] = " << it->second;
+		LOG_REQUEST_D() << "  [" << it->first << "] = " << it->second;
 	}
-	LOG_REQUEST_I() << "======================";
+	LOG_REQUEST_D() << "======================";
 }
 
 
