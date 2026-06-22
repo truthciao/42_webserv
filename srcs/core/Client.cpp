@@ -107,8 +107,9 @@ void	Client::_process_data(const char* data, size_t len)
 
 void	Client::prepare_reponse()
 {
-	// _request.print();
-	// LOG_CLIENT_D() << "Body content: " << _request.get_body();
+	_request.print();
+	LOG_CLIENT_D() << "Body content: " << _request.get_body();
+	
 	LocationConfig	matched_loc;
 	bool	has_location = Router::match(*_server_config, _request.get_uri(), matched_loc);
 

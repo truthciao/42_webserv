@@ -24,7 +24,6 @@ header-field = field-name ":" OWS field-value OWS
 
 一个分块编码的 HTTP body
 
-
 	<HTTP Headers>
 	Transfer-Encoding: chunked  <-- 关键的请求头
 	\r\n
@@ -41,6 +40,41 @@ header-field = field-name ":" OWS field-value OWS
 
 生成随机大文件
 	dd if=/dev/urandom of=www/bigfile.bin bs=1M count=10
+
+multipart/form-data 和 boundary
+- `Content-Type: multipart/form-data; boundary=----xxx`
+- boundary 分隔符的作用
+- 每个 part 的结构：headers + 空行 + 内容
+- `Content-Disposition: form-data; name="file"; filename="photo.jpg"`
+- 二进制文件在 body 中是原封不动的字节
+
+    --boundary_string\r\n
+    (Part 1 Headers)
+    \r\n
+    (Part 1 Body)
+    \r\n
+    --boundary_string\r\n
+    (Part 2 Headers)
+    ...
+    --boundary_string--\r\n
+
+    POST /upload HTTP/1.1
+    Host: example.com
+    Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+    ----WebKitFormBoundary7MA4YWxkTrZu0gW
+    Content-Disposition: form-data; name="username"
+
+    johndoe
+    ----WebKitFormBoundary7MA4YWxkTrZu0gW
+    Content-Disposition: form-data; name="file"; filename="photo.jpg"
+    Content-Type: image/jpeg
+
+    (这里是 photo.jpg 文件的原始二进制数据，一个字节不多，一个字节不少)
+    ...
+    ...
+    ...
+    ----WebKitFormBoundary7MA4YWxkTrZu0gW--
 
 post 测试
 - 测试：`curl -X POST -d "key=value" localhost:8080`

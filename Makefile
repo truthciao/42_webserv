@@ -15,7 +15,6 @@ OBJ_DIR		= objs
 INC_DIR		= includes
 
 # Source Files
-# List all .cpp files you want to compile here.
 SRCS_FILES	= main.cpp \
 			  core/Server.cpp \
 			  core/Client.cpp \
@@ -54,25 +53,25 @@ all: $(NAME)
 
 # Rule to link the executable
 $(NAME): $(OBJS)
-	@echo "$(YELLOW)Linking objects to create executable: $(NAME)...$(RESET)"
+	@printf "$(YELLOW)Linking objects to create executable: $(NAME)...$(RESET)\n"
 	@$(CXX) $(CXXFLAGS) $(OBJS) -o $(NAME)
-	@echo "$(GREEN)Executable $(NAME) created successfully!$(RESET)"
+	@printf "$(GREEN)Executable $(NAME) created successfully!$(RESET)\n"
 
 # Rule to compile .cpp files into .o files
 # This also creates dependency files (.d) for header tracking
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(@D)
-	@echo "$(GREEN)Compiling $<...$(RESET)"
+	@printf "$(GREEN)Compiling $<...$(RESET)\n"
 	@$(CXX) $(CXXFLAGS) $(INC_FLAGS) -c $< -o $@ -MMD
 
 # Clean up object files and dependency files
 clean:
-	@echo "$(RED)Cleaning object files...$(RESET)"
+	@printf "$(RED)Cleaning object files...$(RESET)\n"
 	@rm -rf $(OBJ_DIR)
 
 # Full clean: remove objects and the final executable
 fclean: clean
-	@echo "$(RED)Cleaning executable...$(RESET)"
+	@printf "$(RED)Cleaning executable...$(RESET)\n"
 	@rm -f $(NAME)
 
 # Rebuild all
@@ -88,6 +87,3 @@ valgrind: $(NAME)
 
 # Include dependency files. The `-` before include ignores errors if files don't exist.
 -include $(DEPS)
-
-
-
