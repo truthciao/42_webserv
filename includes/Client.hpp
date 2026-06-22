@@ -77,36 +77,35 @@ private:
 
 	bool	_send_header(PendingResponse*);
 	bool	_send_file_body(PendingResponse*);
-	void	_start_next_response();
 
 	bool	_detect_cgi(	const std::string& uri,
 							const LocationConfig& loc,
 							std::string& out_script_path,
 							std::string& out_interpreter,
 							std::string& out_cwd)	const;
-
 	void	_start_cgi(	const std::string& script_path,
 						const std::string& interpreter,
 						const std::string& cwd,
 						const LocationConfig& loc);
-
 	std::map<std::string, std::string>	_build_cgi_env(	const std::string& script_path,
 														const LocationConfig& loc)	const;
-
 	void	_finish_cgi();
-	void	_enqueue_raw_response(const std::string& raw);
+	void	_enqueue_raw_response(const std::string& raw, bool is_file = false);
+
+	void	_handle_upload(const LocationConfig& loc);
+	void	_handle_delete(const LocationConfig& loc);
+	void	_handle_autoindex(const std::string& uri, const LocationConfig& loc);
 
 	int					_fd;
 	ClientState			_state;
 	const ServerConfig*	_server_config;
-
-	Request		_request;
-	Response	_response;
+	Request				_request;
+	Response			_response;
+	CgiHandler*			_cgi;
 
 	std::deque<PendingResponse*> _response_queue;
 	std::ifstream				_file_stream;
 
-	CgiHandler*	_cgi;
 };
 
 

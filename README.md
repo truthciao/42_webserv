@@ -1,9 +1,12 @@
 		case 200: return "OK";
+		case 201: return "Created";
+		case 204: return "No Content";
 		case 301: return "Moved Permanently";
 		case 400: return "Bad Request";
-		case 403: return "Fobidden";
+		case 403: return "Forbidden";
 		case 404: return "Not Found";
 		case 405: return "Method Not Allowed";
+		case 415: return "Unsupported Media Type";
 		case 500: return "Internal Server Error";
 
 HTTP-message = start-line *( header-field CRLF ) CRLF [ message-body ]

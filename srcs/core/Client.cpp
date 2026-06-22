@@ -10,6 +10,8 @@
 #include <cstring>
 #include <sstream>
 #include <algorithm>
+#include <sys/stat.h>
+
 
 // ─────────────────────────────────────────────
 // Construction / Destruction
@@ -117,14 +119,17 @@ void	Client::prepare_reponse()
 
 	if (!has_location)
 	{
-		PendingResponse* pr = new PendingResponse();
+		bool is_file = _response.build_no_location(*_server_config);
+		_enqueue_raw_response(_response.get_raw(), is_file);
+		_state = WRITING;
+		return;
+	}
 
-		_response.build_no_location();
-		pr->write_buf		= _response.get_raw();
-		pr->write_offset	= 0;
-		pr->is_file			= true;
-		pr->write_stage		= WRITE_HEADER;
-		_response_queue.push_back(pr);
+	if (!matched_loc.allow_methods.empty() &&
+		matched_loc.allow_methods.find(_request.get_method()) == matched_loc.allow_methods.end())
+	{
+		bool is_file = _response.build_error(*_server_config, 405);
+		_enqueue_raw_response(_response.get_raw(), is_file);
 		_state = WRITING;
 		return;
 	}
@@ -136,21 +141,35 @@ void	Client::prepare_reponse()
 		return;
 	}
 
-	PendingResponse* pr = new PendingResponse();
-	bool is_file_response = _response.build(_request.get_method(), _request.get_uri(),
-											*_server_config, matched_loc);
-	pr->write_buf		= _response.get_raw();
-	pr->write_offset	= 0;
-	pr->is_file			= is_file_response;
-	pr->write_stage		= WRITE_HEADER;
+	const std::string& method = _request.get_method();
 
-	if (is_file_response)
+	if (method == "DELETE")
 	{
-		pr->file_path		= _response.get_file_path();
-		pr->file_remaining	= _response.get_file_size();
+		_handle_delete(matched_loc);
+		return;
 	}
 
-	_response_queue.push_back(pr);
+	if (method == "POST" && matched_loc.upload_enable)
+	{
+		_handle_upload(matched_loc);
+		return;
+	}
+
+	bool is_file_response = _response.build(_request.get_method(), _request.get_uri(),
+											*_server_config, matched_loc);
+	if (_response.is_autoindex_needed())
+	{
+		if (matched_loc.autoindex)
+			_handle_autoindex(_request.get_uri(), matched_loc);
+		else
+		{
+			bool is_file = _response.build_error(*_server_config, 403);
+			_enqueue_raw_response(_response.get_raw(), is_file);
+			_state = WRITING;
+		}
+		return;
+	}
+	_enqueue_raw_response(_response.get_raw(), is_file_response);
 
 	LOG_CLIENT_D() << "Prepare reponse complete! Queue size = " << _response_queue.size();
 
@@ -294,7 +313,7 @@ void	Client::_start_cgi(	const std::string& script_path,
 			"\r\n"
 			"<html><body>404 CGI not found</body></html>");
 		_state = WRITING;
-    	LOG_CGI_W() << "Script not found or not executable: " << script_path;
+		LOG_CGI_W() << "Script not found or not executable: " << script_path;
 		return;
 	}
 
@@ -493,13 +512,18 @@ void	Client::_finish_cgi()
 	_cgi = NULL;
 }
 
-void	Client::_enqueue_raw_response(const std::string& raw)
+void	Client::_enqueue_raw_response(const std::string& raw, bool is_file)
 {
 	PendingResponse* pr = new PendingResponse();
 	pr->write_buf		= raw;
 	pr->write_offset	= 0;
-	pr->is_file			= false;
+	pr->is_file			= is_file;
 	pr->write_stage		= WRITE_HEADER;
+	if (is_file)
+	{
+		pr->file_path		= _response.get_file_path();
+		pr->file_remaining	= _response.get_file_size();
+	}
 	_response_queue.push_back(pr);
 }
 
@@ -629,7 +653,7 @@ bool	Client::_send_file_body(PendingResponse* pr)
 		{
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 			{
-    			LOG_CLIENT_D() << "Socket buffer full on fd=" << _fd << ", will try again later.";
+				LOG_CLIENT_D() << "Socket buffer full on fd=" << _fd << ", will try again later.";
 				return false;
 			}
 			LOG_CLIENT_E() << "Write error on fd=" << _fd << ": " << strerror(errno);
@@ -642,4 +666,180 @@ bool	Client::_send_file_body(PendingResponse* pr)
 }
 
 
+void	Client::_handle_upload(const LocationConfig& loc)
+{
+	const	std::map<std::string, std::string>& headers = _request.get_headers();
+	std::map<std::string, std::string>::const_iterator ct_it = headers.find("content-type");
 
+	if (ct_it == headers.end())
+	{
+		bool is_file = _response.build_error(*_server_config, 415);
+		_enqueue_raw_response(_response.get_raw(), is_file);
+		_state = WRITING;
+		LOG_CLIENT_W() << "POST: missing content-type in header";
+		return;
+	}
+
+	std::string boundary = MultipartParser::extract_boundary(ct_it->second);
+	if (boundary.empty())
+	{
+		bool is_file = _response.build_error(*_server_config, 400);
+		_enqueue_raw_response(_response.get_raw(), is_file);
+		_state = WRITING;
+		LOG_CLIENT_W() << "Upload: missing boundary in Content-Type";
+		return;
+	}
+
+	MultipartParser parser;
+	if (!parser.parse(_request.get_body(), boundary))
+	{
+		bool is_file = _response.build_error(*_server_config, 400);
+		_enqueue_raw_response(_response.get_raw(), is_file);
+		_state = WRITING;
+		LOG_CLIENT_W() << "Upload: multipart parse failed";
+		return;
+	}
+
+	const std::vector<MultipartPart>& parts = parser.get_parts();
+	if (parts.empty())
+	{
+		bool is_file = _response.build_error(*_server_config, 400);
+		_enqueue_raw_response(_response.get_raw(), is_file);
+		_state = WRITING;
+		LOG_CLIENT_W() << "Upload: no parts found";
+		return;
+	}
+
+	std::string saved_filename;
+	for (size_t i = 0; i < parts.size(); ++i)
+	{
+		if (parts[i].filename.empty())
+			continue;
+		const std::string& fn = parts[i].filename;
+		if (fn.find('/') != std::string::npos || fn.find("..") != std::string::npos)
+		{
+			bool is_file = _response.build_error(*_server_config, 400);
+			_enqueue_raw_response(_response.get_raw(), is_file);
+			_state = WRITING;
+			LOG_CLIENT_W() << "Upload: dangerous filename rejected: " << fn;
+			return;
+		}
+
+		std::string dest = loc.upload_store + "/" + fn;
+		LOG_CLIENT_I() << "Upload: saving to " << dest;
+
+		std::ofstream out(dest.c_str(), std::ios::binary);
+		if (!out.is_open())
+		{
+			bool is_file = _response.build_error(*_server_config, 500);
+			_enqueue_raw_response(_response.get_raw(), is_file);
+			_state = WRITING;
+			LOG_CLIENT_W() << "Upload: cannot open dest file: " << dest;
+			return;
+		}
+		out.write(parts[i].body.c_str(), static_cast<std::streamsize>(parts[i].body.size()));
+		out.close();
+
+		saved_filename = fn;
+		LOG_CLIENT_I() << "Upload: saved " << fn << " (" << parts[i].body.size() << " bytes)";
+		break;
+	}
+
+	if (saved_filename.empty())
+	{
+		bool is_file = _response.build_error(*_server_config, 400);
+		_enqueue_raw_response(_response.get_raw(), is_file);
+		_state = WRITING;
+		return;
+	}
+
+	_response.build_upload_ok(saved_filename);
+	_enqueue_raw_response(_response.get_raw());
+	_state = WRITING;
+}
+
+void	Client::_handle_delete(const LocationConfig& loc)
+{
+	std::string	path = _request.get_uri();
+	size_t		q = path.find('?');
+	if (q != std::string::npos)
+		path = path.substr(0, q);
+
+	if (path.find("/../") != std::string::npos ||
+		(path.size() >= 3 && path.substr(path.size() - 3) == "/.."))
+	{
+		bool is_file = _response.build_error(*_server_config, 403);
+		_enqueue_raw_response(_response.get_raw(), is_file);
+		_state = WRITING;
+		LOG_CLIENT_W() << "DELETE: Try to acess /.. : 403";
+		return;
+	}
+
+	std::string fs_path = loc.root + path;
+	struct stat st;
+	if (stat(fs_path.c_str(), &st) != 0)
+	{
+		bool is_file = _response.build_error(*_server_config, 404);
+		_enqueue_raw_response(_response.get_raw(), is_file);
+		_state = WRITING;
+		LOG_CLIENT_W() << "DELETE: file doesn't exist : 404: " << fs_path;
+		return;
+	}
+
+	if (S_ISDIR(st.st_mode))
+	{
+		bool is_file = _response.build_error(*_server_config, 403);
+		_enqueue_raw_response(_response.get_raw(), is_file);
+		_state = WRITING;
+		LOG_CLIENT_W() << "DELETE: Unable to delte a directory";
+		return;
+	}
+
+	if (unlink(fs_path.c_str()) != 0)
+	{
+		bool is_file = _response.build_error(*_server_config, 403);
+		_enqueue_raw_response(_response.get_raw(), is_file);
+		_state = WRITING;
+        LOG_CLIENT_E() << "DELETE: unlink failed on " << fs_path << ": " << strerror(errno);
+		return;
+	}
+
+	_response.build_delete_ok();
+	_enqueue_raw_response(_response.get_raw());
+	_state = WRITING;
+}
+
+void	Client::_handle_autoindex(const std::string& uri, const LocationConfig& loc)
+{
+	(void)uri;
+	std::string	path = _request.get_uri();
+	size_t		q = path.find('?');
+	if (q != std::string::npos)
+		path = path.substr(0, q);
+
+	if (path.empty() || path[path.size() - 1] != '/')
+	{
+		std::string raw =
+			"HTTP/1.1 301 Moved Permanently\r\n"
+			"Location: " + path + "/\r\n"
+			"Content-Length: 0\r\n"
+			"Connection: close\r\n"
+			"\r\n";
+		_enqueue_raw_response(raw);
+		_state = WRITING;
+		return;
+	}
+
+	std::string fs_path = loc.root + path;
+	std::string html = Autoindex::generate(path, fs_path);
+	if (html.empty())
+	{
+		bool is_file = _response.build_error(*_server_config, 403);
+		_enqueue_raw_response(_response.get_raw(), is_file);
+		_state = WRITING;
+		return;
+	}
+	_response.build_autoindex(path, html);
+	_enqueue_raw_response(_response.get_raw());
+	_state = WRITING;
+}

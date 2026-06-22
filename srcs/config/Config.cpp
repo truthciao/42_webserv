@@ -4,14 +4,14 @@
 // LocationConfig 实现
 // ==========================================
 
-LocationConfig::LocationConfig() : 
-    route(""), 
-    root(""), 
-    index("index.html"), 
-    autoindex(false), 
-    redirect_code(0), 
-    redirect_url(""), 
-    upload_enable(false), 
+LocationConfig::LocationConfig() :
+    route(""),
+    root(""),
+    index("index.html"),
+    autoindex(false),
+    redirect_code(0),
+    redirect_url(""),
+    upload_enable(false),
     upload_store("") {}
 
 LocationConfig::LocationConfig(const LocationConfig& src) {
@@ -40,9 +40,9 @@ LocationConfig::~LocationConfig() {}
 // ServerConfig 实现
 // ==========================================
 
-ServerConfig::ServerConfig() : 
-    host("0.0.0.0"), 
-    port(8080), 
+ServerConfig::ServerConfig() :
+    host("0.0.0.0"),
+    port(8080),
     client_max_body_size(1024 * 1024) {} // 默认限制 1MB
 
 ServerConfig::ServerConfig(const ServerConfig& src) {

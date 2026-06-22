@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Old Site</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #e8e0d0;
+        }
+        .container {
+            text-align: center;
+            padding: 40px;
+            background: #fdfaf4;
+            border: 2px dashed #b0a080;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        }
+        h1 { color: #5a4a2a; }
+        p  { color: #8a7a5a; }
+        .badge {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 6px 16px;
+            background: #b0a080;
+            color: white;
+            border-radius: 20px;
+            font-size: 0.85em;
+        }
+        .redirect-notice {
+            margin-top: 24px;
+            padding: 12px 20px;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            color: #856404;
+            font-size: 0.9em;
+        }
+        .countdown {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #c0392b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 Old Site</h1>
+        <p>这是旧站点，此页面已不再维护。</p>
+        <p>This site has been deprecated. You will be redirected shortly.</p>
+        <div class="redirect-notice">
+            ⚠️ Redirecting to new site in <span class="countdown" id="countdown">3</span> second(s)...
+        </div>
+        <div class="badge">Old Site — Deprecated</div>
+    </div>
+
+    <script>
+        let count = 3;
+        const el = document.getElementById('countdown');
+        const timer = setInterval(() => {
+            count--;
+            el.textContent = count;
+            if (count <= 0) {
+                clearInterval(timer);
+                window.location.href = '/new/index.html';
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

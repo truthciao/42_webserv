@@ -16,6 +16,7 @@ Response::Response()
 	: _status_code(200)
 	, _status_text("OK")
 	, _file_size(0)
+	, _autoindex_needed(false)
 {}
 
 // ─────────────────────────────────────────────
@@ -74,7 +75,7 @@ bool	Response::build(	const std::string& method,
 
 	if (path.find("/../") != std::string::npos || (path.size() >= 3 && path.substr(path.size() - 3) == "/.."))
 	{
-		build_error(403);
+		build_error(server, 403);
 		LOG_RESPONSE_D() << "Try to acess /.. : 403";
 		return true;
 	}
@@ -95,10 +96,17 @@ bool	Response::build(	const std::string& method,
 					"\r\n";
 			return false;
 		}
-		else
-			fs_path += location.index.empty() ? "index.html" : location.index;
-	}
 
+		std:: string index_path = fs_path + (location.index.empty() ? "index.html" : location.index);
+		if (file_exists(index_path))
+			fs_path = index_path;
+		else
+		{
+			_autoindex_needed = true;
+			return false;
+		}
+	}
+	
 	size_t	file_size = 0;
 	if (file_exists(fs_path) && get_file_size_byptes(fs_path, file_size))
 	{
@@ -112,16 +120,19 @@ bool	Response::build(	const std::string& method,
 	else
 	{
 		build_error(server, 404);
-		LOG_RESPONSE_D() << fs_path << " : file doesn't exit: 404";
+		LOG_RESPONSE_W() << fs_path << " : file doesn't exit: 404";
 		return true;
 	}
 }
 
-bool	Response::build_no_location()
+bool	Response::build_no_location(const ServerConfig& _server_cfg)
 {
-	build_error(404);
-	LOG_RESPONSE_D() << "No location matched this uri: 404";
-	return true;
+	if (build_error(_server_cfg, 404))
+	{
+		LOG_RESPONSE_D() << "No location matched this uri: 404";
+		return true;
+	}
+	return false;
 }
 
 std::string	Response::get_mime_type(const std::string& path)
@@ -171,6 +182,7 @@ std::string	Response::status_text(int code)
 		case 403: return "Forbidden";
 		case 404: return "Not Found";
 		case 405: return "Method Not Allowed";
+		case 415: return "Unsupported Media Type";
 		case 500: return "Internal Server Error";
 		default:  return "Unknown";
 	}
@@ -197,15 +209,15 @@ bool	Response::try_server_custom_error_page(const ServerConfig& server, int code
 	return false;
 }
 
-
-void	Response::build_error(const ServerConfig& server, int code)
+bool	Response::build_error(const ServerConfig& server, int code)
 {
 	if (try_server_custom_error_page(server, code))
 	{
 		LOG_RESPONSE_D() << "Served custom error page for code " << code;
-		return;
+		return true;
 	}
 	build_error(code);
+	return false;
 }
 
 void	Response::build_error(int code)
@@ -265,37 +277,36 @@ void	Response::build_upload_ok(const std::string& filename)
 	_status_text = status_text(_status_code);
 
 	std::ostringstream body;
-    body << "<html><body>"
-         << "<h2>Upload successful</h2>"
-         << "<p>File <strong>" << filename << "</strong> has been uploaded.</p>"
-         << "</body></html>";
-    _body = body.str();
+	body << "<html><body>"
+		 << "<h2>Upload successful</h2>"
+		 << "<p>File <strong>" << filename << "</strong> has been uploaded.</p>"
+		 << "</body></html>";
+	_body = body.str();
 
 	std::ostringstream h;
-    std::ostringstream h;
-    h << "HTTP/1.1 " << _status_code << " " <<  _status_text << "\r\n"
-      << "Content-Type: text/html\r\n"
-      << "Content-Length: " << _body.size() << "\r\n"
-      << "Connection: close\r\n"
-      << "\r\n"
-      << _body;
+	h << "HTTP/1.1 " << _status_code << " " <<  _status_text << "\r\n"
+	  << "Content-Type: text/html\r\n"
+	  << "Content-Length: " << _body.size() << "\r\n"
+	  << "Connection: close\r\n"
+	  << "\r\n"
+	  << _body;
 	_raw = h.str();
 
-    LOG_RESPONSE_I() << "201 Created: uploaded " << filename;
+	LOG_RESPONSE_I() << "201 Created: uploaded " << filename;
 }
 void	Response::build_delete_ok()
 {
 	_status_code = 204;
 	_status_text = status_text(_status_code);
 
-    std::ostringstream h;
-    h << "HTTP/1.1 " << _status_code << " " <<  _status_text << "\r\n"
-      << "Content-Length: 0\r\n"
-      << "Connection: close\r\n"
-      << "\r\n";
-    _raw = h.str();
+	std::ostringstream h;
+	h << "HTTP/1.1 " << _status_code << " " <<  _status_text << "\r\n"
+	  << "Content-Length: 0\r\n"
+	  << "Connection: close\r\n"
+	  << "\r\n";
+	_raw = h.str();
 
-    LOG_RESPONSE_I() << "204 No Content: resource deleted";
+	LOG_RESPONSE_I() << "204 No Content: resource deleted";
 }
 
 void	Response::build_autoindex(const std::string& uri, const std::string& html_body)
@@ -306,13 +317,13 @@ void	Response::build_autoindex(const std::string& uri, const std::string& html_b
 	_body		 = html_body;
 
 	std::ostringstream h;
-    h << "HTTP/1.1 " << _status_code << " " <<  _status_text << "\r\n"
-      << "Content-Type: text/html; charset=UTF-8\r\n"
-      << "Content-Length: " << _body.size() << "\r\n"
-      << "Connection: close\r\n"
-      << "\r\n"
-      << _body;
-    _raw = h.str();
+	h << "HTTP/1.1 " << _status_code << " " <<  _status_text << "\r\n"
+	  << "Content-Type: text/html; charset=UTF-8\r\n"
+	  << "Content-Length: " << _body.size() << "\r\n"
+	  << "Connection: close\r\n"
+	  << "\r\n"
+	  << _body;
+	_raw = h.str();
 
-    LOG_RESPONSE_D() << "Autoindex page generated, size=" << _body.size();
+	LOG_RESPONSE_D() << "Autoindex page generated, size=" << _body.size();
 }

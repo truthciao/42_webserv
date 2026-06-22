@@ -22,7 +22,7 @@ public:
 
 	bool	parse(const std::string& body, const std::string& boundary);
 
-	const std::vector<MultipartParser>& get_parts() const { return _parts; }
+	const std::vector<MultipartPart>& get_parts() const { return _parts; }
 
 private:
 	MultipartParser(const MultipartParser&);

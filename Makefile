@@ -23,6 +23,8 @@ SRCS_FILES	= main.cpp \
 			  http/Request.cpp \
 			  http/Response.cpp \
 			  http/Router.cpp \
+			  http/Autoindex.cpp \
+			  http/MultipartParser.cpp \
 			  config/Config.cpp \
 			  config/ConfigParser.cpp
 

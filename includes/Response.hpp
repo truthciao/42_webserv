@@ -14,24 +14,25 @@ public:
 					const std::string& uri,
 					const ServerConfig& server,
 					const LocationConfig& location);
-	bool	build_no_location();
-	void	build_error(const ServerConfig& server, int code);
+	bool	build_no_location(const ServerConfig& _server_cfg);
+	bool	build_error(const ServerConfig& server, int code);
 	void	build_upload_ok(const std::string& filename);
 	void	build_delete_ok();
 	void	build_autoindex(const std::string& uri, const std::string& html_body);
 
-	const std::string&	get_raw() const { return _raw; }
+	const std::string&	get_raw() 		const { return _raw; }
 	const std::string&	get_file_path() const { return _file_path; }
 	size_t				get_file_size() const { return _file_size; }
+	bool				is_autoindex_needed()	const { return _autoindex_needed; }
 
 private:
 	int			_status_code;
 	std::string	_status_text;
 	std::string	_body;
 	std::string	_raw;
-
 	std::string	_file_path;
 	size_t		_file_size;
+	bool		_autoindex_needed;
 
 	static std::string	get_mime_type(const std::string& path);
 	static bool			file_exists(const std::string& path);
