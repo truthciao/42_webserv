@@ -5,9 +5,16 @@
 
 bool Router::is_prefix(const std::string& prefix, const std::string& uri)
 {
-	if (uri.size() < prefix.size())
+	std::string pre;
+
+	if (prefix[prefix.size() - 1] == '/')
+		pre = prefix.substr(0, prefix.size() - 1);
+	else
+		pre = prefix;
+
+	if (uri.size() < pre.size())
 		return false;
-	return uri.compare(0, prefix.size(), prefix) == 0;
+	return uri.compare(0, pre.size(), pre) == 0;
 }
 
 bool Router::match(const ServerConfig& server, const std::string& uri, LocationConfig& out)

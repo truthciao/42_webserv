@@ -80,7 +80,11 @@ bool	Response::build(	const std::string& method,
 		return true;
 	}
 
-	std::string fs_path = location.root + path;
+	std::string route = location.route;
+	if (route[route.size() - 1] == '/')
+		route = route.substr(0, route.size() - 1);
+
+	std::string fs_path = location.root + path.substr(route.size());
 
 	if (is_directory(fs_path))
 	{
@@ -199,8 +203,8 @@ bool	Response::try_server_custom_error_page(const ServerConfig& server, int code
 
 	if (file_exists(fs_path) && get_file_size_byptes(fs_path, file_size))
 	{
-		_status_code = 200;
-		_status_text = status_text(200);
+		_status_code = code;
+		_status_text = status_text(code);
 		_file_path = fs_path;
 		_file_size = file_size;
 		build_file_header(get_mime_type(fs_path));
@@ -243,7 +247,7 @@ void	Response::build_error(int code)
 	}
 	_raw = header + _body;
 
-	LOG_RESPONSE_D() << "Error response built successfully!";
+	LOG_RESPONSE_D() << code << ": " << _status_text << ". Error response built successfully!";
 }
 
 void	Response::build_redirect(int code, const std::string& location_url)

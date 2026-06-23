@@ -111,9 +111,6 @@ void	Client::_process_data(const char* data, size_t len)
 
 void	Client::prepare_reponse()
 {
-	_request.print();
-	LOG_CLIENT_D() << "Body content: " << _request.get_body();
-
 	LocationConfig	matched_loc;
 	bool	has_location = Router::match(*_server_config, _request.get_uri(), matched_loc);
 
@@ -163,7 +160,7 @@ void	Client::prepare_reponse()
 			_handle_autoindex(_request.get_uri(), matched_loc);
 		else
 		{
-			bool is_file = _response.build_error(*_server_config, 403);
+			bool is_file = _response.build_error(*_server_config, 404);
 			_enqueue_raw_response(_response.get_raw(), is_file);
 			_state = WRITING;
 		}
@@ -449,6 +446,7 @@ bool	Client::_send_file_body(PendingResponse* pr)
 			return false;
 		}
 	}
+	LOG_CLIENT_I() << "Send File: " << pr->file_path << " complete!";
 	_file_stream.close();
 	return true;
 }

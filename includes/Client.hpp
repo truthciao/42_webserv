@@ -87,9 +87,7 @@ private:
 						const std::string& interpreter,
 						const std::string& cwd,
 						const LocationConfig& loc);
-	// std::map<std::string, std::string>	_build_cgi_env(	const std::string& script_path,
-	// 													const LocationConfig& loc)	const;
-	// void	_finish_cgi();
+
 	void	_deliver_cgi_result();
 	void	_enqueue_raw_response(const std::string& raw, bool is_file = false);
 
