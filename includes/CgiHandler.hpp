@@ -38,7 +38,7 @@ public:
 	int		get_stdout_fd()	const	{ return _stdout_fd[0]; }
 
 	bool	stdin_done()	const	{ return _stdin_done; }
-	bool	stdou_done()	const	{ return _stdout_done; }
+	bool	stdout_done()	const	{ return _stdout_done; }
 
 	CgiState			get_state()			const	{ return _state; }
 	const std::string&	get_output()		const	{ return _output; }

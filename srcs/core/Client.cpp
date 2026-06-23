@@ -213,95 +213,14 @@ bool	Client::_detect_cgi(	const std::string& uri,
 	}
 	return false;
 }
-
-// ─────────────────────────────────────────────
-// CGI：构造环境变量
-// ─────────────────────────────────────────────
-
-std::map<std::string, std::string>
-Client::_build_cgi_env(	const std::string& script_path,
-						const LocationConfig& loc)	const
-{
-	(void)loc;
-	std::map<std::string, std::string> env;
-
-	const std::map<std::string, std::string>& headers = _request.get_headers();
-
-	// ── 标准 CGI/1.1 元变量 ──
-	env["GATEWAY_INTERFACE"] = "CGI/1.1";
-	env["SERVER_PROTOCOL"]   = _request.get_version();
-	env["SERVER_SOFTWARE"]   = "webserv/1.0";
-	env["REQUEST_METHOD"]    = _request.get_method();
-
-	// ── 服务器信息（从 config 读取）──
-	{
-		std::ostringstream	port_oss;
-		port_oss << _server_config->port;
-		env["SERVER_PORT"] = port_oss.str();
-	}
-	env["SERVER_NAME"] = _server_config->server_names.empty()
-						 ? "localhost"
-						 : _server_config->server_names[0];
-
-	std::string	raw_uri = _request.get_uri();
-	std::string	path_info;
-	std::string	query_str;
-
-	size_t	q = raw_uri.find('?');
-	if (q != std::string::npos)
-	{
-		path_info	= raw_uri.substr(0, q);
-		query_str	= raw_uri.substr(q + 1);
-	}
-	else
-		path_info = raw_uri;
-
-	env["PATH_INFO"]       = path_info;
-	env["QUERY_STRING"]    = query_str;
-	env["SCRIPT_NAME"]     = path_info;
-	env["SCRIPT_FILENAME"] = script_path;
-
-	// ── Body 相关 ──
-	std::map<std::string, std::string>::const_iterator it;
-
-	{
-		std::ostringstream cl;
-		cl << _request.get_body().size();
-		env["CONTENT_LENGTH"] = cl.str();
-	}
-
-	it = headers.find("content-type");
-	if (it != headers.end())
-		env["CONTENT_TYPE"] = it->second;
-
-	// ── HTTP_* 转换所有请求头 ──
-	for (it = headers.begin(); it != headers.end(); ++it)
-	{
-		std::string key = "HTTP_";
-		for (size_t i = 0; i < it->first.size(); ++i)
-		{
-			char c = it->first[i];
-			key += (c == '-') ? '_' : static_cast<char>(std::toupper(c));
-		}
-		if (key == "HTTP_CONTENT_LENGTH" || key == "HTTP_CONTENT_TYPE")
-			continue;
-		env[key] = it->second;
-	}
-
-	// php-cgi 安全模式需要这个变量
-	env["REDIRECT_STATUS"] = "200";
-
-	return env;
-}
-
 // ─────────────────────────────────────────────
 // CGI：Start
 // ─────────────────────────────────────────────
 
 void	Client::_start_cgi(	const std::string& script_path,
-					const std::string& interpreter,
-					const std::string& cwd,
-					const LocationConfig& loc)
+							const std::string& interpreter,
+							const std::string& cwd,
+							const LocationConfig& loc)
 {
 	if (access(script_path.c_str(), F_OK | X_OK) != 0)
 	{
@@ -318,51 +237,27 @@ void	Client::_start_cgi(	const std::string& script_path,
 	}
 
 	delete	_cgi;
-	_cgi = new CgiHandler();
+	_cgi = new CgiSession();
 
-	std::map<std::string, std::string> env = _build_cgi_env(script_path, loc);
-
-	if (!_cgi->start(script_path, interpreter, env, _request.get_body(), cwd))
+	if (!_cgi->start(_request, *_server_config, loc, script_path, interpreter, cwd))
 	{
-		LOG_CGI_E() << "Failed to start CGI for fd=" << _fd;
-		delete _cgi;
-		_cgi = NULL;
-		_enqueue_raw_response(
-			"HTTP/1.1 500 Internal Server Error\r\n"
-			"Content-Type: text/html\r\n"
-			"Content-Length: 38\r\n"
-			"Connection: close\r\n"
-			"\r\n"
-			"<html><body>500 CGI failed</body></html>");
-		_state = WRITING;
+		_deliver_cgi_result();
 		return;
 	}
 
-	if (!_cgi->stdin_done())
-		_state = CGI_WRITING_STDIN;
-	else
-		_state = CGI_READING_STDOUT;
-
-	LOG_CLIENT_D() << "CGI started for fd=" << _fd
+	_state = _cgi->stdin_done() ? CGI_READING_STDOUT : CGI_WRITING_STDIN;
+	LOG_CLIENT_D() << "CgiSession started for fd=" << _fd
 				   << " script=" << script_path;
 }
 
-// ─────────────────────────────────────────────
-// CGI：对外接口（供 Server 的 poll 分发）
-// ─────────────────────────────────────────────
-
 int		Client::get_cgi_stdin_fd()	const
 {
-	if (_cgi && !_cgi->stdin_done())
-		return _cgi->get_stdin_fd();
-	return -1;
+	return _cgi->get_stdin_fd();
 }
 
 int		Client::get_cgi_stdout_fd()	const
 {
-	if (_cgi && !_cgi->stdou_done())
-		return _cgi->get_stdout_fd();
-	return -1;
+	return _cgi->get_stdout_fd();
 }
 
 void	Client::handle_cgi_stdin_writable()
@@ -370,8 +265,7 @@ void	Client::handle_cgi_stdin_writable()
 	if(!_cgi)
 		return;
 
-	_cgi->write_to_stdin();
-
+	_cgi->on_stdin_writable();
 	if (_cgi->stdin_done())
 		_state = CGI_READING_STDOUT;
 }
@@ -380,136 +274,30 @@ void	Client::handle_cgi_stdout_readable()
 	if(!_cgi)
 		return;
 
-	bool more = _cgi->read_from_stdout();
-
-	if (!more)
-	{
-		_cgi->check_child_status();
-		_finish_cgi();
-	}
+    _cgi->on_stdout_readable();
+    if (_cgi->is_complete())
+        _deliver_cgi_result();
 }
 
 void	Client::check_cgi_timeout()
 {
-	if (!_cgi || _cgi->get_state() != CGI_RUNNING)
-		return;
-
-	_cgi->check_child_status();
-
-	if (_cgi->get_state() == CGI_TIMEOUT)
-	{
-		LOG_CGI_W() << "CGI timeout on fd=" << _fd;
-
-		std::ostringstream body;
-		body << "<html><body><h1>504 Gateway Timeout</h1></body></html>";
-		std::string b = body.str();
-
-		std::ostringstream h;
-		h	<< "HTTP/1.1 504 Gateway Timeout\r\n"
-			<< "Content-Type: text/html\r\n"
-			<< "Content-Length: " << b.size() << "\r\n"
-			<< "Connection: close\r\n\r\n";
-
-		_enqueue_raw_response(h.str() + b);
-		_state = WRITING;
-		delete _cgi;
-		_cgi = NULL;
-	}
-}
-
-// ─────────────────────────────────────────────
-// CGI 输出 -> 构造 HTTP 响应
-// ─────────────────────────────────────────────
-
-void	Client::_finish_cgi()
-{
 	if (!_cgi)
 		return;
+	_cgi->check_timeout();
+	if (_cgi->is_complete())
+		_deliver_cgi_result();
 
-	if (_cgi->get_state() == CGI_ERROR || _cgi->get_state() == CGI_TIMEOUT)
-	{
-		std::string body = "<html><body><h1>502 Bad Gateway</h1></body></html>";
-		std::ostringstream h;
-		h << "HTTP/1.1 502 Bad Gateway\r\n"
-		  << "Content-Type: text/html\r\n"
-		  << "Content-Length: " << body.size() << "\r\n"
-		  << "Connection: close\r\n\r\n";
-		_enqueue_raw_response(h.str() + body);
-		delete _cgi;
-		_cgi = NULL;
-		_state = WRITING;
+}
+
+void Client::_deliver_cgi_result()
+{
+    if (!_cgi)
 		return;
-	}
-
-	const std::string& raw_output = _cgi->get_output();
-
-	size_t	sep = raw_output.find("\r\n\r\n");
-
-	std::string cgi_headers;
-	std::string cgi_body;
-
-	if (sep != std::string::npos)
-	{
-		cgi_headers	= raw_output.substr(0, sep);
-		cgi_body	= raw_output.substr(sep + 4);
-	}
-	else
-	{
-		LOG_CGI_W() << "CGI output missing header separator, treating as body";
-		cgi_body = raw_output;
-	}
-
-	std::string content_type = "text/html";
-	std::string status_line  = "200 OK";
-	std::ostringstream extra_headers;
-
-	std::istringstream	hs(cgi_headers);
-	std::string	line;
-	while (std::getline(hs, line))
-	{
-		if (!line.empty() && line[line.size() - 1] == '\r')
-			line.erase(line.size() - 1);
-		if (line.empty())
-			continue;
-
-		size_t colon = line.find(':');
-		if (colon == std::string::npos)
-			continue;
-
-		std::string	key = line.substr(0, colon);
-		std::string	val = line.substr(colon + 1);
-
-		size_t start = val.find_first_not_of(' ');
-		if (start != std::string::npos)
-			val = val.substr(start);
-
-		std::string lower_key = key;
-		std::transform(lower_key.begin(), lower_key.end(), lower_key.begin(), ::tolower);
-
-		if (lower_key == "content-type")
-			content_type = val;
-		else if (lower_key == "status")
-			status_line = val;
-		else
-			extra_headers << key << ": " << val << "\r\n";
-	}
-
-	std::ostringstream h;
-	h	<< "HTTP/1.1 " << status_line << "\r\n"
-		<< "Content-Type: " << content_type << "\r\n"
-		<< "Content-Length: " << cgi_body.size() << "\r\n"
-		<< extra_headers.str()
-		<< "Connection: close\r\n"
-		<< "\r\n";
-
-	_enqueue_raw_response(h.str() + cgi_body);
-	_state = WRITING;
-
-	LOG_CLIENT_D() << "CGI finished for fd=" << _fd
-				   << ", output size=" << cgi_body.size();
-
-	delete _cgi;
-	_cgi = NULL;
+    const CgiResult r = _cgi->get_result();
+    _enqueue_raw_response(r.raw_response);
+    _state = WRITING;
+    delete _cgi;
+    _cgi = NULL;
 }
 
 void	Client::_enqueue_raw_response(const std::string& raw, bool is_file)

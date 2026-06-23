@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Request.hpp"
-#include "CgiHandler.hpp"
+#include "CgiSession.hpp"
 #include "Response.hpp"
 #include "Config.hpp"
 
@@ -87,9 +87,10 @@ private:
 						const std::string& interpreter,
 						const std::string& cwd,
 						const LocationConfig& loc);
-	std::map<std::string, std::string>	_build_cgi_env(	const std::string& script_path,
-														const LocationConfig& loc)	const;
-	void	_finish_cgi();
+	// std::map<std::string, std::string>	_build_cgi_env(	const std::string& script_path,
+	// 													const LocationConfig& loc)	const;
+	// void	_finish_cgi();
+	void	_deliver_cgi_result();
 	void	_enqueue_raw_response(const std::string& raw, bool is_file = false);
 
 	void	_handle_upload(const LocationConfig& loc);
@@ -101,7 +102,7 @@ private:
 	const ServerConfig*	_server_config;
 	Request				_request;
 	Response			_response;
-	CgiHandler*			_cgi;
+	CgiSession*			_cgi;
 
 	std::deque<PendingResponse*> _response_queue;
 	std::ifstream				_file_stream;

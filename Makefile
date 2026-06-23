@@ -20,11 +20,13 @@ SRCS_FILES	= main.cpp \
 			  core/Client.cpp \
 			  core/Logger.cpp \
 			  core/CgiHandler.cpp \
+			  core/CgiSession.cpp \
 			  http/Request.cpp \
 			  http/Response.cpp \
 			  http/Router.cpp \
 			  http/Autoindex.cpp \
 			  http/MultipartParser.cpp \
+			  http/CgiEnvBuilder.cpp \
 			  config/Config.cpp \
 			  config/ConfigParser.cpp
 
