@@ -26,12 +26,12 @@ void ConfigParser::parse(Config& config) {
 	std::ifstream file(_configFile.c_str());
 	if (!file.is_open())
 		throw std::runtime_error("Cannot open config file: " + _configFile);
-	
+
 	std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 	file.close();
 
 	_tokenize(content);
-	
+
 	while (_pos < _tokens.size()) {
 		std::string	token = _accept();
 		if (token == "server") {
@@ -46,7 +46,7 @@ void ConfigParser::parse(Config& config) {
 //tokenizer
 void ConfigParser::_tokenize(const std::string& content) {
 	std::string spaced_content;
-	
+
 	// 1. 预处理：在特殊符号前后加空格
 	for (size_t i = 0; i < content.length(); ++i) {
 		char c = content[i];
@@ -54,7 +54,7 @@ void ConfigParser::_tokenize(const std::string& content) {
 			spaced_content += ' ';
 			spaced_content += c;
 			spaced_content += ' ';
-		} 
+		}
 		else if (c == '#') {
 			// 如果遇到注释符号 '#'，忽略当前行剩下的所有内容
 			while (i < content.length() && content[i] != '\n')
@@ -102,12 +102,12 @@ ServerConfig ConfigParser::_parseServer()
                 // 情况 C: 包含冒号，说明是 IP:Port 格式 (例如 127.0.0.1:80)
                 ip_str = arg.substr(0, colon_pos);
                 port_str = arg.substr(colon_pos + 1);
-            } 
+            }
             else if (arg.find('.') != std::string::npos) {
                 // 情况 B: 没有冒号，但有小数点，说明只有 IP (例如 192.168.1.1)
                 ip_str = arg;
                 // port_str 保持为空，意味着使用开头的默认端口 8080
-            } 
+            }
             else {
                 // 情况 A: 既没冒号也没小数点，说明只有端口 (例如 80)
                 // ip_str 保持为空，意味着使用开头的默认 IP 0.0.0.0
@@ -131,7 +131,7 @@ ServerConfig ConfigParser::_parseServer()
 			LOG_CONFIG_D() << "Parsed listen directive: " << server.host << ":" << server.port;
 			_expect(";");
 		}
-		
+
 		else if (directive == "host") {
 			server.host = _accept();
 			if (server.host == "localhost")
@@ -209,6 +209,19 @@ ServerConfig ConfigParser::_parseServer()
 			server.locations.push_back(_parseLocation());
 
 			LOG_CONFIG_D() << "_parseLocation() block finished.";
+		}
+
+		else if (directive == "cgi") {
+			std::string ext = _accept();
+			if (ext[0] != '.') {
+				throw std::invalid_argument("CGI extension must start with a dot (.), got: " + ext);
+			}
+			std::string path = _accept();
+			if (path == ";") {
+				throw std::invalid_argument("Missing CGI path for extention");
+			}
+			server.cgi_ext_path[ext] = path;
+			_expect(";");
 		}
 
 		else {
@@ -406,7 +419,7 @@ bool ConfigParser::_isValidServerName(const std::string& name) const {
     }
 
     // 进阶检查：域名不能以点或连字符开头/结尾
-    if (name[0] == '.' || name[0] == '-' || 
+    if (name[0] == '.' || name[0] == '-' ||
         name[name.length() - 1] == '.' || name[name.length() - 1] == '-') {
         return false;
     }
@@ -444,7 +457,7 @@ size_t ConfigParser::_parseBodySize(const std::string& size_str) const {
 
     // 3. 第三道防线：转换并检查内存溢出
     // 在调用 strtoul 之前，先将系统的错误码重置为 0
-    errno = 0; 
+    errno = 0;
     unsigned long raw_val = std::strtoul(size_str.c_str(), NULL, 10);
 
     // strtoul 非常聪明，如果数字大到溢出，它会返回 ULONG_MAX 并把 errno 设为 ERANGE
