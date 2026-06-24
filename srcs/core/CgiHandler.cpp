@@ -157,6 +157,8 @@ bool	CgiHandler::start(	const std::string& script_path,
 	}
 	if (_pid == 0)
 	{
+		LOG_CGI_W() << "Entered Child process!";
+
 		if (dup2(_stdin_fd[READ_END], STDIN_FILENO) == -1)
 		{
 			LOG_CGI_E() << "dup2(stdin) failed: " << strerror(errno);
@@ -171,11 +173,15 @@ bool	CgiHandler::start(	const std::string& script_path,
 		close_stdin_fd();
 		close_stdout_fd();
 
+		LOG_CGI_W() << "in middle";
+
 		if (!cwd.empty())
 			chdir(cwd.c_str());
 
 		char** argv = build_argv(interpreter, script_path);
 		char** envp = build_envp(env_vars);
+
+		LOG_CGI_W() << "before execve!";
 
 		execve(argv[0], argv, envp);
 
@@ -252,6 +258,8 @@ bool	CgiHandler::write_to_stdin()
 		close_stdin_fd();
 		return false;
 	}
+
+	LOG_CGI_D() << "Writing to stdin ended!";
 	return true;
 }
 

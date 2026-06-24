@@ -295,8 +295,6 @@ void	Server::rebuild_poll_array()
 
 			if (stdout_fd >= 0)
 			{
-				LOG_SERVER_D() << "ADD stdout_fd=" << stdout_fd << " to poll";  // ← 加这行
-
 				struct pollfd pfd;
 				pfd.fd		= stdout_fd;
 				pfd.events	= POLLIN;
@@ -308,8 +306,7 @@ void	Server::rebuild_poll_array()
 				info.type		= CGI_FD_STDOUT;
 				_cgi_fds[stdout_fd] = info;
 			}
-			else
-				LOG_SERVER_D() << "stdout_fd < 0, NOT added";  // ← 也加这行
+
 			continue;
 		}
 

@@ -122,19 +122,19 @@ void	Client::prepare_reponse()
 		return;
 	}
 
+	std::string script_path, interpreter, cwd;
+	if (_detect_cgi(_request.get_uri(), matched_loc, script_path, interpreter, cwd))
+	{
+		_start_cgi(script_path, interpreter, cwd, matched_loc);
+		return;
+	}
+	
 	if (!matched_loc.allow_methods.empty() &&
 		matched_loc.allow_methods.find(_request.get_method()) == matched_loc.allow_methods.end())
 	{
 		bool is_file = _response.build_error(*_server_config, 405);
 		_enqueue_raw_response(_response.get_raw(), is_file);
 		_state = WRITING;
-		return;
-	}
-
-	std::string script_path, interpreter, cwd;
-	if (_detect_cgi(_request.get_uri(), matched_loc, script_path, interpreter, cwd))
-	{
-		_start_cgi(script_path, interpreter, cwd, matched_loc);
 		return;
 	}
 
@@ -190,6 +190,12 @@ bool	Client::_detect_cgi(	const std::string& uri,
 	size_t	q = path.find('?');
 	if (q != std::string::npos)
 		path = path.substr(0, q);
+
+	std::string route = loc.route;
+	if (route[route.size() - 1] == '/')
+		route = route.substr(0, route.size() - 1);
+
+	path = path.substr(route.size());
 
 	for (std::map<std::string, std::string>::const_iterator it = loc.cgi_ext_path.begin();
 		 it != loc.cgi_ext_path.end(); ++it)

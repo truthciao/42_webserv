@@ -203,12 +203,16 @@ ServerConfig ConfigParser::_parseServer()
 			_expect(";");
 		}
 
-		else if (directive == "location") {
-			LOG_CONFIG_D() << "Entering _parseLocation() block...";
+		else if (directive == "root") {
+			server.root = _accept();
+			if (server.root == ";") throw std::invalid_argument("Directive 'root' has no argument.");
+			_expect(";");
+		}
 
-			server.locations.push_back(_parseLocation());
-
-			LOG_CONFIG_D() << "_parseLocation() block finished.";
+		else if (directive == "index") {
+			server.index = _accept();
+			if (server.index == ";") throw std::invalid_argument("Directive 'index' has no argument.");
+			_expect(";");
 		}
 
 		else if (directive == "cgi") {
@@ -224,6 +228,14 @@ ServerConfig ConfigParser::_parseServer()
 			_expect(";");
 		}
 
+		else if (directive == "location") {
+			LOG_CONFIG_D() << "Entering _parseLocation() block...";
+
+			server.locations.push_back(_parseLocation(server));
+
+			LOG_CONFIG_D() << "_parseLocation() block finished.";
+		}
+
 		else {
 			throw std::runtime_error("Unknown server directive: " + directive);
 		}
@@ -234,9 +246,14 @@ ServerConfig ConfigParser::_parseServer()
 	return server;
 }
 
-LocationConfig ConfigParser::_parseLocation()
+LocationConfig ConfigParser::_parseLocation(ServerConfig& server)
 {
 	LocationConfig loc;
+
+	loc.client_max_body_size = server.client_max_body_size;
+	loc.root = server.root;
+	loc.index = server.index;
+	loc.cgi_ext_path = server.cgi_ext_path;
 
 	std::string route = _accept();
 	if (route == "{" || route == ";") {
@@ -262,6 +279,11 @@ LocationConfig ConfigParser::_parseLocation()
 		else if (directive == "index") {
 			loc.index = _accept();
 			if (loc.index == ";") throw std::invalid_argument("Directive 'index' has no argument.");
+			_expect(";");
+		}
+
+		else if (directive == "client_max_body_size") {
+			loc.client_max_body_size = _parseBodySize(_accept());
 			_expect(";");
 		}
 

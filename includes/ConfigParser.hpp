@@ -36,7 +36,7 @@ private:
 
     // parser
     ServerConfig _parseServer();
-    LocationConfig _parseLocation();
+    LocationConfig _parseLocation(ServerConfig& server);
 
     // helpers
     std::string _accept();
