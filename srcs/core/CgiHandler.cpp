@@ -272,7 +272,6 @@ bool	CgiHandler::read_from_stdout()
 {
 	char buf[CGI_CHUNK];
 	ssize_t	n = read(_stdout_fd[READ_END], buf, sizeof(buf));
-	LOG_CGI_D() << "read from read_from_stdout, n =" << n;
 
 	if (n > 0)
 	{

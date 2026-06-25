@@ -92,7 +92,7 @@ bool	Response::build(	const std::string& method,
 		{
 			_status_code = 301;
 			_status_text = status_text(301);
-			LOG_RESPONSE_D() << fs_path << " is a directory but requested without '/', redirecting...: 301";
+			LOG_RESPONSE_I() << fs_path << " is a directory but requested without '/', redirecting...: 301";
 			_raw =	"HTTP/1.1 301 Moved Permanently\r\n"
 					"Location: " + uri + "/\r\n"
 					"Content-Length: 0\r\n"
@@ -110,7 +110,7 @@ bool	Response::build(	const std::string& method,
 			return false;
 		}
 	}
-	
+
 	size_t	file_size = 0;
 	if (file_exists(fs_path) && get_file_size_byptes(fs_path, file_size))
 	{
