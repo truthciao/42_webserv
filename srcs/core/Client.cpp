@@ -112,7 +112,7 @@ void	Client::_process_data(const char* data, size_t len)
 void	Client::prepare_reponse()
 {
 	_request.print();
-	
+
 	LocationConfig	matched_loc;
 	bool	has_location = Router::match(*_server_config, _request.get_uri(), matched_loc);
 
@@ -275,9 +275,9 @@ void	Client::handle_cgi_stdout_readable()
 	if(!_cgi)
 		return;
 
-    _cgi->on_stdout_readable();
-    if (_cgi->is_complete())
-        _deliver_cgi_result();
+	_cgi->on_stdout_readable();
+	if (_cgi->is_complete())
+		_deliver_cgi_result();
 }
 
 void	Client::check_cgi_timeout()
@@ -292,13 +292,13 @@ void	Client::check_cgi_timeout()
 
 void Client::_deliver_cgi_result()
 {
-    if (!_cgi)
+	if (!_cgi)
 		return;
-    const CgiResult r = _cgi->get_result();
-    _enqueue_raw_response(r.raw_response);
-    _state = WRITING;
-    delete _cgi;
-    _cgi = NULL;
+	const CgiResult r = _cgi->get_result();
+	_enqueue_raw_response(r.raw_response);
+	_state = WRITING;
+	delete _cgi;
+	_cgi = NULL;
 }
 
 void	Client::_enqueue_raw_response(const std::string& raw, bool is_file)
@@ -470,7 +470,23 @@ void	Client::_handle_upload(const LocationConfig& loc)
 		return;
 	}
 
-	std::string boundary = MultipartParser::extract_boundary(ct_it->second);
+	const std::string& ct = ct_it->second;
+
+	if (ct.find("multipart/form-data") != std::string::npos)
+		_handle_upload_multipart(loc, ct);
+	else if (ct.find("application/octet-stream") != std::string::npos)
+		_handle_upload_octet_stream(loc);
+	else
+	{
+		bool is_file = _response.build_error(*_server_config, 415);
+		_enqueue_raw_response(_response.get_raw(), is_file);
+		_state = WRITING;
+	}
+}
+
+void 	Client::_handle_upload_multipart(const LocationConfig& loc, const std::string& ct)
+{
+	std::string boundary = MultipartParser::extract_boundary(ct);
 	if (boundary.empty())
 	{
 		bool is_file = _response.build_error(*_server_config, 400);
@@ -505,6 +521,7 @@ void	Client::_handle_upload(const LocationConfig& loc)
 	{
 		if (parts[i].filename.empty())
 			continue;
+
 		const std::string& fn = parts[i].filename;
 		if (fn.find('/') != std::string::npos || fn.find("..") != std::string::npos)
 		{
@@ -548,6 +565,65 @@ void	Client::_handle_upload(const LocationConfig& loc)
 	_state = WRITING;
 }
 
+void	Client::_handle_upload_octet_stream(const LocationConfig& loc)
+{
+	const	std::map<std::string, std::string>& headers = _request.get_headers();
+
+	std::string	filename;
+	std::map<std::string, std::string>::const_iterator ct_it = headers.find("content-disposition");
+	if (ct_it != headers.end())
+	{
+		MultipartParser parser;
+		std::string name, filename;
+		const std::string& cd_value = ct_it->second;
+		parser.parse_disposition(cd_value, name, filename);
+		LOG_SOCKET_W() << "from disposition, filename=" << filename;
+	}
+
+	if (filename.empty())
+	{
+		const std::string& path = _request.get_uri();
+		size_t	pos = path.rfind('/');
+		if (pos != std::string::npos && pos + 1 < path.size())
+			filename = path.substr(pos + 1);
+	}
+
+	if (filename.empty())
+		filename = "upload_file";
+
+	 if (filename.find('/') != std::string::npos ||
+		filename.find("..") != std::string::npos)
+	{
+		bool is_file = _response.build_error(*_server_config, 400);
+		_enqueue_raw_response(_response.get_raw(), is_file);
+		_state = WRITING;
+		return;
+	}
+
+	std::string dest = loc.upload_store + "/" + filename;
+	LOG_CLIENT_I() << "Upload(octet-stream): saving to " << dest;
+	std::ofstream out(dest.c_str(), std::ios::binary);
+	if (!out.is_open())
+	{
+		bool is_file = _response.build_error(*_server_config, 500);
+		_enqueue_raw_response(_response.get_raw(), is_file);
+		_state = WRITING;
+		LOG_CLIENT_W() << "Upload(octet-stream): cannot open dest file: " << dest;
+		return;
+	}
+
+	const std::string& body = _request.get_body();
+	out.write(body.c_str(), static_cast<std::streamsize>(body.size()));
+	out.close();
+
+ 	LOG_CLIENT_I() << "Upload(octet-stream): saved " << filename
+				   << " (" << body.size() << " bytes)";
+
+	_response.build_upload_ok(filename);
+	_enqueue_raw_response(_response.get_raw());
+	_state = WRITING;
+}
+
 void	Client::_handle_delete(const LocationConfig& loc)
 {
 	std::string	path = _request.get_uri();
@@ -565,7 +641,12 @@ void	Client::_handle_delete(const LocationConfig& loc)
 		return;
 	}
 
-	std::string fs_path = loc.root + path;
+	std::string route = loc.route;
+	if (route[route.size() - 1] == '/')
+		route = route.substr(0, route.size() - 1);
+
+	std::string fs_path = loc.root + path.substr(route.size());
+
 	struct stat st;
 	if (stat(fs_path.c_str(), &st) != 0)
 	{
@@ -590,7 +671,7 @@ void	Client::_handle_delete(const LocationConfig& loc)
 		bool is_file = _response.build_error(*_server_config, 403);
 		_enqueue_raw_response(_response.get_raw(), is_file);
 		_state = WRITING;
-        LOG_CLIENT_E() << "DELETE: unlink failed on " << fs_path << ": " << strerror(errno);
+		LOG_CLIENT_E() << "DELETE: unlink failed on " << fs_path << ": " << strerror(errno);
 		return;
 	}
 
@@ -620,7 +701,12 @@ void	Client::_handle_autoindex(const std::string& uri, const LocationConfig& loc
 		return;
 	}
 
-	std::string fs_path = loc.root + path;
+	std::string route = loc.route;
+	if (route[route.size() - 1] == '/')
+		route = route.substr(0, route.size() - 1);
+
+	std::string fs_path = loc.root + path.substr(route.size());
+
 	std::string html = Autoindex::generate(path, fs_path);
 	if (html.empty())
 	{

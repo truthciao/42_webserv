@@ -101,6 +101,9 @@ bool	Response::build(	const std::string& method,
 			return false;
 		}
 
+		if (location.autoindex)
+			_autoindex_needed = true;
+
 		std:: string index_path = fs_path + (location.index.empty() ? "index.html" : location.index);
 		if (file_exists(index_path))
 			fs_path = index_path;
@@ -182,6 +185,7 @@ std::string	Response::status_text(int code)
 		case 201: return "Created";
 		case 204: return "No Content";
 		case 301: return "Moved Permanently";
+		case 302: return "Found";
 		case 400: return "Bad Request";
 		case 403: return "Forbidden";
 		case 404: return "Not Found";

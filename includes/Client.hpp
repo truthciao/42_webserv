@@ -88,6 +88,8 @@ private:
 	void	_enqueue_raw_response(const std::string& raw, bool is_file = false);
 
 	void	_handle_upload(const LocationConfig& loc);
+	void 	_handle_upload_multipart(const LocationConfig& loc, const std::string& ct);
+	void	_handle_upload_octet_stream(const LocationConfig& loc);
 	void	_handle_delete(const LocationConfig& loc);
 	void	_handle_autoindex(const std::string& uri, const LocationConfig& loc);
 

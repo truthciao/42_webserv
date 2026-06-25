@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>Server 2 — Port 8081</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0f0f1a;
+      color: #e0e0f0;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #7c6af7;
+      background: rgba(124, 106, 247, 0.12);
+      border: 1px solid rgba(124, 106, 247, 0.35);
+      border-radius: 20px;
+      padding: 4px 14px;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      font-size: 3rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #7c6af7, #a78bfa, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+    }
+
+    .subtitle {
+      font-size: 1rem;
+      color: #6b7280;
+      margin-bottom: 48px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      width: 100%;
+      max-width: 480px;
+      margin-bottom: 48px;
+    }
+
+    .info-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .info-card .label {
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #4b5563;
+      margin-bottom: 8px;
+    }
+
+    .info-card .value {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #a78bfa;
+      font-family: monospace;
+    }
+
+    .port-highlight {
+      color: #38bdf8;
+    }
+
+    .footer {
+      font-size: 0.8rem;
+      color: #374151;
+    }
+
+    /* 装饰圆 */
+    .glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.15;
+      pointer-events: none;
+    }
+    .glow-1 { width: 400px; height: 400px; background: #7c6af7; top: -100px; right: -100px; }
+    .glow-2 { width: 300px; height: 300px; background: #38bdf8; bottom: -80px; left: -80px; }
+  </style>
+</head>
+<body>
+
+  <div class="glow glow-1"></div>
+  <div class="glow glow-2"></div>
+
+  <div class="badge">● Running</div>
+
+  <h1>Server #2</h1>
+  <p class="subtitle">这是第二个虚拟服务器，独立运行在端口 8081</p>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="label">Port</div>
+      <div class="value port-highlight">8081</div>
+    </div>
+    <div class="info-card">
+      <div class="label">Server ID</div>
+      <div class="value">#2</div>
+    </div>
+    <div class="info-card">
+      <div class="label">Host</div>
+      <div class="value">localhost</div>
+    </div>
+    <div class="info-card">
+      <div class="label">Protocol</div>
+      <div class="value">HTTP/1.1</div>
+    </div>
+  </div>
+
+  <p class="footer">webserv · Multiple Virtual Servers Demo</p>
+
+</body>
+</html>

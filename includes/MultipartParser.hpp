@@ -20,8 +20,10 @@ public:
 
 	static std::string	extract_boundary(const std::string& content_type);
 
-	bool	parse(const std::string& body, const std::string& boundary);
-
+	bool				parse(const std::string& body, const std::string& boundary);
+	static void			parse_disposition(const std::string& value,
+										  std::string& out_name,
+										  std::string& out_filename);
 	const std::vector<MultipartPart>& get_parts() const { return _parts; }
 
 private:
@@ -31,9 +33,7 @@ private:
 	bool				parse_part(const std::string& raw_part);
 
 	static std::string	trim(const std::string& s);
-	static void			parse_disposition(const std::string& value,
-										  std::string& out_name,
-										  std::string& out_filename);
+
 
 	std::vector<MultipartPart>	_parts;
 };

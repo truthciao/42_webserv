@@ -22,20 +22,26 @@
     <a href="/static/about.html">浏览静态页面</a>
   </div>
 
-  <!-- GET / POST / DELETE -->
-  <div class="card">
-    <h3>2. HTTP Methods <span class="tag">GET / POST / DELETE</span></h3>
-    <!-- 上传表单 = POST -->
-    <form action="/upload/" method="post" enctype="multipart/form-data">
-      <input type="file" name="file">
-      <button>Upload (POST)</button>
-    </form>
-    <p><a href="/upload/">查看已上传文件 (GET, autoindex)</a></p>
-    <!-- DELETE 通过一个小 JS fetch 触发 -->
-    <button onclick="fetch('/upload/test.txt',{method:'DELETE'}).then(r=>alert('Status: '+r.status))">
-      DELETE test.txt
-    </button>
+<!-- GET / POST / DELETE -->
+<div class="card">
+  <h3>2. HTTP Methods <span class="tag">GET / POST / DELETE</span></h3>
+  <!-- 上传表单 = POST -->
+  <form action="/upload/" method="post" enctype="multipart/form-data">
+    <input type="file" name="file">
+    <button>Upload (POST)</button>
+  </form>
+  <p><a href="/upload/">查看已上传文件 (GET, autoindex)</a></p>
+  <!-- DELETE 通过一个小 JS fetch 触发 -->
+  <div style="display:flex; gap:8px; align-items:center;">
+    <input type="text" id="deleteFilename" placeholder="filename, e.g. test.txt">
+    <button onclick="
+      const name = document.getElementById('deleteFilename').value.trim();
+      if (!name) { alert('请输入文件名'); return; }
+      fetch('/upload/' + encodeURIComponent(name), { method: 'DELETE' })
+        .then(r => alert('Status: ' + r.status));
+    ">DELETE</button>
   </div>
+</div>
 
   <!-- 方法限制 -->
   <div class="card">
@@ -55,13 +61,7 @@
   <!-- 重定向 -->
   <div class="card">
     <h3>5. Redirection <span class="tag">config</span></h3>
-    <a href="/old-site/">应被 301/302 重定向</a>
-  </div>
-
-  <!-- 路径映射 -->
-  <div class="card">
-    <h3>6. Route → Directory (root/alias) <span class="tag">config</span></h3>
-    <a href="/kapouet/pouic/toto/pouet.html">/kapouet/... → /tmp/www/...</a>
+    <a href="/old-site/">visting old-site, should be redirecting to new-site.</a>
   </div>
 
   <!-- 错误页 -->

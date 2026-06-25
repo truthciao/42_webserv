@@ -54,7 +54,6 @@ struct ServerConfig {
     std::map<int, std::string> error_pages;  // 错误码对应的错误页面路径 (如 404 -> "/404.html")
     std::vector<LocationConfig> locations;   // 该服务器下的所有路由块
     std::string root;                        // 本地根目录映射，例如 "/tmp/www"
-    std::string index;    
     std::map<std::string, std::string> cgi_ext_path;
 
     ServerConfig();

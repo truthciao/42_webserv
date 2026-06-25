@@ -47,8 +47,7 @@ ServerConfig::ServerConfig() :
     host("0.0.0.0"),
     port(8080),
     client_max_body_size(1024 * 1024) ,
-    root(""),
-    index("index.html")
+    root("")
     {} // 默认限制 1MB
 
 ServerConfig::ServerConfig(const ServerConfig& src) {
@@ -63,8 +62,7 @@ ServerConfig& ServerConfig::operator=(const ServerConfig& rhs) {
         this->error_pages = rhs.error_pages;
         this->locations = rhs.locations;
         this->root = rhs.root;
-        this->index = rhs.index;      
-        this->cgi_ext_path = rhs.cgi_ext_path; 
+        this->cgi_ext_path = rhs.cgi_ext_path;
     }
     return *this;
 }

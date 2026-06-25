@@ -209,12 +209,6 @@ ServerConfig ConfigParser::_parseServer()
 			_expect(";");
 		}
 
-		else if (directive == "index") {
-			server.index = _accept();
-			if (server.index == ";") throw std::invalid_argument("Directive 'index' has no argument.");
-			_expect(";");
-		}
-
 		else if (directive == "cgi") {
 			std::string ext = _accept();
 			if (ext[0] != '.') {
@@ -252,7 +246,6 @@ LocationConfig ConfigParser::_parseLocation(ServerConfig& server)
 
 	loc.client_max_body_size = server.client_max_body_size;
 	loc.root = server.root;
-	loc.index = server.index;
 	loc.cgi_ext_path = server.cgi_ext_path;
 
 	std::string route = _accept();
