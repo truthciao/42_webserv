@@ -144,8 +144,6 @@ bool	CgiHandler::start(	const std::string& script_name,
 	_request_body = request_body;
 	_body_offset = 0;
 
-	_stdin_done = _request_body.empty();
-
 	_pid = fork();
 
 	if (_pid < 0)
@@ -178,7 +176,7 @@ bool	CgiHandler::start(	const std::string& script_name,
 		char** argv = build_argv(interpreter, script_name);
 		char** envp = build_envp(env_vars);
 
-		LOG_CGI_I() << "Before execve: Scrip path =" << argv[1] << ", changed path to cwd=" << cwd;
+		// LOG_CGI_D() << "Before execve: Scrip name =" << argv[1] << ", interpreter=" << interpreter<< ", changed path to cwd=" << cwd;
 
 		execve(argv[0], argv, envp);
 
@@ -204,6 +202,13 @@ bool	CgiHandler::start(	const std::string& script_name,
 				  << ": " << strerror(errno);
 		_state = CGI_ERROR;
 		return false;
+	}
+
+	_stdin_done = _request_body.empty();
+	if (_stdin_done)
+	{
+		close(_stdin_fd[WRITE_END]);
+		_stdin_fd[WRITE_END] = -1;
 	}
 
 	_state = CGI_RUNNING;
@@ -267,6 +272,7 @@ bool	CgiHandler::read_from_stdout()
 {
 	char buf[CGI_CHUNK];
 	ssize_t	n = read(_stdout_fd[READ_END], buf, sizeof(buf));
+	LOG_CGI_D() << "read from read_from_stdout, n =" << n;
 
 	if (n > 0)
 	{

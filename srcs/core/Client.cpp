@@ -111,6 +111,8 @@ void	Client::_process_data(const char* data, size_t len)
 
 void	Client::prepare_reponse()
 {
+	_request.print();
+	
 	LocationConfig	matched_loc;
 	bool	has_location = Router::match(*_server_config, _request.get_uri(), matched_loc);
 
@@ -209,7 +211,6 @@ bool	Client::_detect_cgi(	const std::string& uri,
 			size_t slash = out_script.script_path.find_last_of('/');
 			out_script.cwd = (slash == std::string::npos) ? "." : out_script.script_path.substr(0, slash);
 			out_script.script_name = (slash == std::string::npos) ? out_script.script_path : out_script.script_path.substr(slash + 1);
-			LOG_CGI_E() << "out_cwd=" << out_script.cwd;
 			return true;
 		}
 	}

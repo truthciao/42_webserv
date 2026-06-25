@@ -118,8 +118,6 @@ CgiResult	CgiSession::_build_result()	const
 {
 	const std::string& raw_output = _handler.get_output();
 
-	LOG_CGI_W() << raw_output;
-
 	size_t	sep = raw_output.find("\r\n\r\n");
 
 	std::string cgi_headers;
@@ -181,7 +179,7 @@ CgiResult	CgiSession::_build_result()	const
 
 	CgiResult	res;
 	res.raw_response = h.str() + cgi_body;
-	LOG_CGI_E() << res.raw_response;
+	LOG_CGI_D() << h.str();
 	res.is_error	 = false;
 	return res;
 }

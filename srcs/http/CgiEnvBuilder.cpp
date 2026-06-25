@@ -53,10 +53,9 @@ CgiEnvBuilder::build(	const Request&			req,
 		path_info = raw_uri;
 
 	env["PATH_INFO"]       = path_info;
-	LOG_CGI_E() << "PATH_INFO=" << env["PATH_INFO"];
 	env["QUERY_STRING"]    = query_str;
-	env["SCRIPT_NAME"]     = path_info;
-		LOG_CGI_E() << "SCRIPT_NAME=" << env["SCRIPT_NAME"];
+	// env["SCRIPT_NAME"]     = path_info;
+	// 	LOG_CGI_E() << "SCRIPT_NAME=" << env["SCRIPT_NAME"];
 	
 	char cwd[PATH_MAX];
 	if (getcwd(cwd, sizeof(cwd)) != NULL)
@@ -64,8 +63,6 @@ CgiEnvBuilder::build(	const Request&			req,
 	else
 		env["SCRIPT_FILENAME"] = script_path;
 		
-	LOG_CGI_E() << "SCRIPT_FILENAME=" << env["SCRIPT_FILENAME"];
-
 
     // ── Body metadata ─────────────────────────────────────────────────────
 	std::map<std::string, std::string>::const_iterator it;
@@ -99,7 +96,7 @@ CgiEnvBuilder::build(	const Request&			req,
     // php-cgi security requirement
 	env["REDIRECT_STATUS"] = "200";
 
-	printEnvMap(env);
+	// printEnvMap(env);
 
 	return env;
 }
