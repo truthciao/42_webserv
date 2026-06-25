@@ -12,4 +12,7 @@ namespace	CgiEnvBuilder
 												const ServerConfig&		server,
 												const LocationConfig& 	loc,
 												const std::string& 		script_path);
+
+	void printEnvMap(const std::map<std::string, std::string>& env_map);
+
 }

@@ -208,9 +208,9 @@ bool	Client::_detect_cgi(	const std::string& uri,
 			out_script_path = loc.root + path;
 			out_interpreter = it->second;
 
-			size_t slash = out_script_path.find_last_not_of('/');
+			size_t slash = out_script_path.find_last_of('/');
 			out_cwd = (slash == std::string::npos) ? "." : out_script_path.substr(0, slash);
-
+			LOG_CGI_E() << "out_cwd=" << out_cwd;
 			return true;
 		}
 	}

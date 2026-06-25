@@ -58,13 +58,14 @@ void	CgiSession::on_stdout_readable()
 	{
 		_handler.check_child_status();
 
-		if (_handler.get_state() == CGI_DONE)
+		CgiState st = _handler.get_state();
+		if (st == CGI_DONE || st == CGI_RUNNING)
 		{
 			_result		= _build_result();
 			_complete	= true;
 			LOG_CGI_I() << "CgiSession complete, output size=" << _handler.get_output().size();
 		}
-		else
+		else 
 		{
 			_result		= _build_error_result(502, "Bad Gateway");
 			_complete	= true;
@@ -118,6 +119,8 @@ int		CgiSession::get_stdout_fd()	const
 CgiResult	CgiSession::_build_result()	const
 {
 	const std::string& raw_output = _handler.get_output();
+
+	LOG_CGI_W() << raw_output;
 
 	size_t	sep = raw_output.find("\r\n\r\n");
 
@@ -180,6 +183,7 @@ CgiResult	CgiSession::_build_result()	const
 
 	CgiResult	res;
 	res.raw_response = h.str() + cgi_body;
+	LOG_CGI_E() << res.raw_response;
 	res.is_error	 = false;
 	return res;
 }
