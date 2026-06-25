@@ -75,7 +75,8 @@ void	CgiHandler::close_stdout_fd()
 // argv / envp 构造
 // ─────────────────────────────────────────────
 
-char**	CgiHandler::build_argv(const std::string& interpreter, const std::string& script_path)
+char**	CgiHandler::build_argv(const std::string& interpreter,
+							   const std::string& script_path)
 {
 	// argv[0] = interpreter (or script itself if interpreter empty)
 	// argv[1] = script path
@@ -122,7 +123,7 @@ void	CgiHandler::free_charpp(char** arr)
 // start(): fork + pipe + execve
 // ─────────────────────────────────────────────
 
-bool	CgiHandler::start(	const std::string& script_path,
+bool	CgiHandler::start(	const std::string& script_name,
 							const std::string& interpreter,
 							const std::map<std::string, std::string>& env_vars,
 							const std::string& request_body,
@@ -174,8 +175,10 @@ bool	CgiHandler::start(	const std::string& script_path,
 		if (!cwd.empty())
 			chdir(cwd.c_str());
 
-		char** argv = build_argv(interpreter, script_path);
+		char** argv = build_argv(interpreter, script_name);
 		char** envp = build_envp(env_vars);
+
+		LOG_CGI_I() << "Before execve: Scrip path =" << argv[1] << ", changed path to cwd=" << cwd;
 
 		execve(argv[0], argv, envp);
 
@@ -207,7 +210,7 @@ bool	CgiHandler::start(	const std::string& script_path,
 	_start_time = time(NULL);
 
 	LOG_CGI_I() << "CGI started: pid=" << _pid
-				<< " script=" << script_path
+				<< " script_name=" << script_name
 				<< " stdin_fd=" << _stdin_fd[WRITE_END]
 				<< " stdout_fd=" << _stdout_fd[READ_END];
 

@@ -19,21 +19,19 @@ CgiSession::~CgiSession() {}
 bool	CgiSession::start(	const Request&			req,
 							const ServerConfig&		server,
 							const LocationConfig&	loc,
-							const std::string&		script_path,
-							const std::string&		interpreter,
-							const std::string&		cwd)
+							const ScriptInfo& script)
 {
-	std::map<std::string, std::string> env = CgiEnvBuilder::build(req, server, loc, script_path);
+	std::map<std::string, std::string> env = CgiEnvBuilder::build(req, server, loc, script.script_path);
 
-	if (!_handler.start(script_path, interpreter, env, req.get_body(), cwd))
+	if (!_handler.start(script.script_name, script.interpreter, env, req.get_body(), script.cwd))
 	{
-		LOG_CGI_E() << "CgiSession::start failed for script=" << script_path;
+		LOG_CGI_E() << "CgiSession::start failed for script=" << script.script_path;
 		_result		= _build_error_result(500, "Internal Server Error");
 		_complete	= true;
 		return	false;
 	}
 
-	LOG_CGI_I() << "CgiSession started: script=" << script_path;
+	LOG_CGI_I() << "CgiSession started: script=" << script.script_path;
 	return true;
 }
 
@@ -65,7 +63,7 @@ void	CgiSession::on_stdout_readable()
 			_complete	= true;
 			LOG_CGI_I() << "CgiSession complete, output size=" << _handler.get_output().size();
 		}
-		else 
+		else
 		{
 			_result		= _build_error_result(502, "Bad Gateway");
 			_complete	= true;

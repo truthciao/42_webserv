@@ -22,7 +22,7 @@ public:
 	CgiHandler();
 	~CgiHandler();
 
-	bool	start(const std::string& script_path,
+	bool	start(const std::string& script_name,
 				  const std::string& interpreter,
 				  const std::map<std::string, std::string>& env_vars,
 				  const std::string& request_body,

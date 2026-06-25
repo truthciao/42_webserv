@@ -80,12 +80,8 @@ private:
 
 	bool	_detect_cgi(	const std::string& uri,
 							const LocationConfig& loc,
-							std::string& out_script_path,
-							std::string& out_interpreter,
-							std::string& out_cwd)	const;
-	void	_start_cgi(	const std::string& script_path,
-						const std::string& interpreter,
-						const std::string& cwd,
+							ScriptInfo& out_script)	const;
+	void	_start_cgi(	const ScriptInfo& script,
 						const LocationConfig& loc);
 
 	void	_deliver_cgi_result();

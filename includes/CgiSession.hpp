@@ -15,6 +15,14 @@ struct CgiResult
 	CgiResult() : is_error(false) {}
 };
 
+struct ScriptInfo
+{
+	std::string	script_path;
+	std::string	interpreter;
+	std::string	cwd;
+	std::string	script_name;
+};
+
 class CgiSession
 {
 public:
@@ -24,9 +32,7 @@ public:
 	bool	start(	const Request&			req,
 					const ServerConfig&		server,
 					const LocationConfig&	loc,
-					const std::string&		script_path,
-					const std::string&		interpreter,
-					const std::string&		cwd);
+					const ScriptInfo& script);
 	void	on_stdin_writable();
 	void	on_stdout_readable();
 	void	check_timeout();

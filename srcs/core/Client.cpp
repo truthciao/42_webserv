@@ -122,13 +122,13 @@ void	Client::prepare_reponse()
 		return;
 	}
 
-	std::string script_path, interpreter, cwd;
-	if (_detect_cgi(_request.get_uri(), matched_loc, script_path, interpreter, cwd))
+	ScriptInfo	out_script;
+	if (_detect_cgi(_request.get_uri(), matched_loc, out_script))
 	{
-		_start_cgi(script_path, interpreter, cwd, matched_loc);
+		_start_cgi(out_script, matched_loc);
 		return;
 	}
-	
+
 	if (!matched_loc.allow_methods.empty() &&
 		matched_loc.allow_methods.find(_request.get_method()) == matched_loc.allow_methods.end())
 	{
@@ -179,9 +179,7 @@ void	Client::prepare_reponse()
 
 bool	Client::_detect_cgi(	const std::string& uri,
 								const LocationConfig& loc,
-								std::string& out_script_path,
-								std::string& out_interpreter,
-								std::string& out_cwd)	const
+								ScriptInfo&	out_script)	const
 {
 	if (loc.cgi_ext_path.empty())
 		return false;
@@ -205,12 +203,13 @@ bool	Client::_detect_cgi(	const std::string& uri,
 		if (path.size() >= ext.size()
 			&& path.compare(path.size() - ext.size(), ext.size(), ext) == 0)
 		{
-			out_script_path = loc.root + path;
-			out_interpreter = it->second;
+			out_script.script_path = loc.root + path;
+			out_script.interpreter = it->second;
 
-			size_t slash = out_script_path.find_last_of('/');
-			out_cwd = (slash == std::string::npos) ? "." : out_script_path.substr(0, slash);
-			LOG_CGI_E() << "out_cwd=" << out_cwd;
+			size_t slash = out_script.script_path.find_last_of('/');
+			out_script.cwd = (slash == std::string::npos) ? "." : out_script.script_path.substr(0, slash);
+			out_script.script_name = (slash == std::string::npos) ? out_script.script_path : out_script.script_path.substr(slash + 1);
+			LOG_CGI_E() << "out_cwd=" << out_script.cwd;
 			return true;
 		}
 	}
@@ -220,12 +219,10 @@ bool	Client::_detect_cgi(	const std::string& uri,
 // CGI：Start
 // ─────────────────────────────────────────────
 
-void	Client::_start_cgi(	const std::string& script_path,
-							const std::string& interpreter,
-							const std::string& cwd,
+void	Client::_start_cgi(	const ScriptInfo& script,
 							const LocationConfig& loc)
 {
-	if (access(script_path.c_str(), F_OK | X_OK) != 0)
+	if (access(script.script_path.c_str(), F_OK | X_OK) != 0)
 	{
 		_enqueue_raw_response(
 			"HTTP/1.1 404 Not Found\r\n"
@@ -235,14 +232,14 @@ void	Client::_start_cgi(	const std::string& script_path,
 			"\r\n"
 			"<html><body>404 CGI not found</body></html>");
 		_state = WRITING;
-		LOG_CGI_W() << "Script not found or not executable: " << script_path;
+		LOG_CGI_W() << "Script not found or not executable: " << script.script_path;
 		return;
 	}
 
 	delete	_cgi;
 	_cgi = new CgiSession();
 
-	if (!_cgi->start(_request, *_server_config, loc, script_path, interpreter, cwd))
+	if (!_cgi->start(_request, *_server_config, loc, script))
 	{
 		_deliver_cgi_result();
 		return;
@@ -250,7 +247,7 @@ void	Client::_start_cgi(	const std::string& script_path,
 
 	_state = _cgi->stdin_done() ? CGI_READING_STDOUT : CGI_WRITING_STDIN;
 	LOG_CLIENT_D() << "CgiSession started for fd=" << _fd
-				   << " script=" << script_path;
+				   << " script=" << script.script_path;
 }
 
 int		Client::get_cgi_stdin_fd()	const
