@@ -41,8 +41,6 @@ header-field = field-name ":" OWS field-value OWS
 	\r\n        <-- 最后的CRLF
 
 
-生成随机大文件
-	dd if=/dev/urandom of=www/bigfile.bin bs=1M count=10
 
 multipart/form-data 和 boundary
 - `Content-Type: multipart/form-data; boundary=----xxx`
@@ -79,6 +77,9 @@ multipart/form-data 和 boundary
     ...
     ----WebKitFormBoundary7MA4YWxkTrZu0gW--
 
+
+生成随机大文件
+	dd if=/dev/urandom of=www/bigfile.bin bs=1M count=10
 post 测试
 - 测试：`curl -X POST -d "key=value" localhost:8080`
 - 测试：`curl -X POST -H "Transfer-Encoding: chunked" -d @bigfile localhost:8080`
