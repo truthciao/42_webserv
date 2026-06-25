@@ -312,6 +312,24 @@ void    Request::print() const
 	{
 		LOG_REQUEST_D() << "  [" << it->first << "] = " << it->second;
 	}
+
+	if (!_body.empty())
+    {
+        const size_t max_body_log_len = 500; 
+        if (_body.length() <= max_body_log_len)
+        {
+            LOG_REQUEST_D() << "Body    : " << _body;
+        }
+        else
+        {
+            LOG_REQUEST_D() << "Body    : " << _body.substr(0, max_body_log_len) << "... [truncated, total size: " << _body.length() << " bytes]";
+        }
+    }
+    else
+    {
+        LOG_REQUEST_D() << "Body    : [empty]";
+    }
+
 	LOG_REQUEST_D() << "======================";
 }
 

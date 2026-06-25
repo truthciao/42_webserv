@@ -474,14 +474,15 @@ void	Client::_handle_upload(const LocationConfig& loc)
 
 	if (ct.find("multipart/form-data") != std::string::npos)
 		_handle_upload_multipart(loc, ct);
-	else if (ct.find("application/octet-stream") != std::string::npos)
-		_handle_upload_octet_stream(loc);
+	// else (ct.find("application/octet-stream") != std::string::npos)
 	else
-	{
-		bool is_file = _response.build_error(*_server_config, 415);
-		_enqueue_raw_response(_response.get_raw(), is_file);
-		_state = WRITING;
-	}
+		_handle_upload_octet_stream(loc);
+	// else
+	// {
+	// 	bool is_file = _response.build_error(*_server_config, 415);
+	// 	_enqueue_raw_response(_response.get_raw(), is_file);
+	// 	_state = WRITING;
+	// }
 }
 
 void 	Client::_handle_upload_multipart(const LocationConfig& loc, const std::string& ct)
