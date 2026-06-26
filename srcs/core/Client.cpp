@@ -459,9 +459,24 @@ bool	Client::_send_file_body(PendingResponse* pr)
 void	Client::_handle_upload(const LocationConfig& loc)
 {
 	const	std::map<std::string, std::string>& headers = _request.get_headers();
-	std::map<std::string, std::string>::const_iterator ct_it = headers.find("content-type");
+	std::map<std::string, std::string>::const_iterator it = headers.find("content-length");
 
-	if (ct_it == headers.end())
+	if (it != headers.end())
+	{
+		size_t content_len = std::strtoul(it->second.c_str(), NULL, 10);
+		if (content_len > loc.client_max_body_size)
+		{
+			bool is_file = _response.build_error(*_server_config, 413);
+			_enqueue_raw_response(_response.get_raw(), is_file);
+			_state = WRITING;
+			LOG_CLIENT_W() << "Upload: body too large: " << content_len
+							   << " > " << loc.client_max_body_size;
+			return;
+		}
+	}
+
+	it = headers.find("content-type");
+	if (it == headers.end())
 	{
 		bool is_file = _response.build_error(*_server_config, 415);
 		_enqueue_raw_response(_response.get_raw(), is_file);
@@ -470,7 +485,7 @@ void	Client::_handle_upload(const LocationConfig& loc)
 		return;
 	}
 
-	const std::string& ct = ct_it->second;
+	const std::string& ct = it->second;
 
 	if (ct.find("multipart/form-data") != std::string::npos)
 		_handle_upload_multipart(loc, ct);

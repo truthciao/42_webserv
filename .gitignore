@@ -5,7 +5,8 @@ objs/
 tester
 cgi_tester
 YoupiBanane/
-bigfile
-txt
-test.txt
+bigfile*
+txt*
+*.txt
+test*
 www/first/upload/
