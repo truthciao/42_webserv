@@ -9,7 +9,7 @@ LocationConfig::LocationConfig() :
     root(""),
     index("index.html"),
     autoindex(false),
-    client_max_body_size(1024 * 1024) ,
+    client_max_body_size(static_cast<size_t>(-1)) ,
     redirect_code(0),
     redirect_url(""),
     upload_enable(false),
@@ -46,7 +46,7 @@ LocationConfig::~LocationConfig() {}
 ServerConfig::ServerConfig() :
     host("0.0.0.0"),
     port(8080),
-    client_max_body_size(1024 * 1024) ,
+    client_max_body_size(static_cast<size_t>(-1)) ,
     root("")
     {} // 默认限制 1MB
 

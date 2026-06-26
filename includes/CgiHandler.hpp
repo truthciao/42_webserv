@@ -5,7 +5,7 @@
 #include <map>
 #include <sys/types.h>
 
-#define CGI_TIMEOUT_SECONDS	5
+#define CGI_TIMEOUT_SECONDS	10
 
 enum CgiState
 {
