@@ -76,14 +76,24 @@ bool	Client::read_from_socket()
 
 void	Client::_process_data(const char* data, size_t len)
 {
-	_request.feed(data, len);
+	_request.feed(data, len, *_server_config);
 
 	while(true)
 	{
 		if (_request.has_error())
 		{
-			LOG_CLIENT_E() << "[-] Parse error on fd=" << _fd;
-			_state = CLOSING;
+			if (_request.is_body_too_large())
+			{
+				LOG_CLIENT_W() << "Request body too large on fd=" << _fd << ": 413";
+				bool is_file = _response.build_error(*_server_config, 413);
+				_enqueue_raw_response(_response.get_raw(), is_file);
+				_state = WRITING;
+			}
+			else
+			{
+				LOG_CLIENT_E() << "[-] Parse error on fd=" << _fd;
+				_state = CLOSING;
+			}
 			return ;
 		}
 
@@ -100,7 +110,7 @@ void	Client::_process_data(const char* data, size_t len)
 		if (leftover.empty())
 			break;
 
-		_request.feed(leftover.c_str(), leftover.size());
+		_request.feed(leftover.c_str(), leftover.size(), *_server_config);
 	}
 }
 
@@ -459,23 +469,8 @@ bool	Client::_send_file_body(PendingResponse* pr)
 void	Client::_handle_upload(const LocationConfig& loc)
 {
 	const	std::map<std::string, std::string>& headers = _request.get_headers();
-	std::map<std::string, std::string>::const_iterator it = headers.find("content-length");
+	std::map<std::string, std::string>::const_iterator it = headers.find("content-type");
 
-	if (it != headers.end())
-	{
-		size_t content_len = std::strtoul(it->second.c_str(), NULL, 10);
-		if (content_len > loc.client_max_body_size)
-		{
-			bool is_file = _response.build_error(*_server_config, 413);
-			_enqueue_raw_response(_response.get_raw(), is_file);
-			_state = WRITING;
-			LOG_CLIENT_W() << "Upload: body too large: " << content_len
-							   << " > " << loc.client_max_body_size;
-			return;
-		}
-	}
-
-	it = headers.find("content-type");
 	if (it == headers.end())
 	{
 		bool is_file = _response.build_error(*_server_config, 415);
@@ -489,15 +484,8 @@ void	Client::_handle_upload(const LocationConfig& loc)
 
 	if (ct.find("multipart/form-data") != std::string::npos)
 		_handle_upload_multipart(loc, ct);
-	// else (ct.find("application/octet-stream") != std::string::npos)
 	else
 		_handle_upload_octet_stream(loc);
-	// else
-	// {
-	// 	bool is_file = _response.build_error(*_server_config, 415);
-	// 	_enqueue_raw_response(_response.get_raw(), is_file);
-	// 	_state = WRITING;
-	// }
 }
 
 void 	Client::_handle_upload_multipart(const LocationConfig& loc, const std::string& ct)

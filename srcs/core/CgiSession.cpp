@@ -70,6 +70,7 @@ void	CgiSession::on_stdout_readable()
 			LOG_CGI_E() << "CgiSession: stdout EOF but CGI state=" << _handler.get_state();
 		}
 	}
+	
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

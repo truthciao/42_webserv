@@ -1,4 +1,6 @@
 #include "Request.hpp"
+#include "Config.hpp"
+#include "Router.hpp"
 #include "Logger.hpp"
 
 #include <iostream>
@@ -14,6 +16,8 @@ Request::Request()
 	, _content_len(0)
 	, _is_chunked(false)
 	, _chunk_size(0)
+	, _max_body_size(static_cast<size_t>(-1))
+	, _body_too_large(false)
 {}
 
 Request::~Request() {}
@@ -30,6 +34,8 @@ void 	Request::reset()
 	_content_len = 0;
 	_is_chunked = false;
 	_chunk_size = 0;
+	_max_body_size = static_cast<size_t>(-1);
+	_body_too_large = false;
 }
 
 // ─────────────────────────────────────────────
@@ -43,7 +49,7 @@ std::string Request::take_leftover()
 	return leftover;
 }
 
-bool	Request::feed(const char* data, size_t len)
+bool	Request::feed(const char* data, size_t len, const ServerConfig& server)
 {
 	_raw_buf.append(data, len);
 
@@ -71,6 +77,12 @@ bool	Request::feed(const char* data, size_t len)
 			{
 				if (line.empty())
 				{
+					LocationConfig loc;
+					if (Router::match(server, _uri, loc))
+						_max_body_size = loc.client_max_body_size;
+					else
+						_max_body_size = server.client_max_body_size;
+
 					std::map<std::string, std::string>::const_iterator te_it = _headers.find("transfer-encoding");
 					std::map<std::string, std::string>::const_iterator cl_it = _headers.find("content-length");
 
@@ -91,7 +103,17 @@ bool	Request::feed(const char* data, size_t len)
 					if (_is_chunked)
 						_parse_state = PARSE_CHUNK_SIZE;
 					else if (_content_len > 0)
+					{
+						if (_content_len > _max_body_size)
+						{
+							LOG_REQUEST_W() << "Content-Length " << _content_len
+											<< " exceeds max_body_size " << _max_body_size << ", rejecting";
+							_body_too_large = true;
+							_parse_state = PARSE_ERROR;
+							return false;
+						}
 						_parse_state = PARSE_BODY;
+					}
 					else
 					{
 						_parse_state = PARSE_COMPLETE;
@@ -107,6 +129,7 @@ bool	Request::feed(const char* data, size_t len)
 		}
 		else if (_parse_state == PARSE_BODY)
 		{
+
 			if (!parse_body())
 				break;
 			return true;
@@ -198,6 +221,15 @@ bool	Request::parse_chunked_body()
 		{
 			if (_raw_buf.size() < _chunk_size)
 				return false;
+
+			if (_body.size() + _chunk_size > _max_body_size)
+			{
+				LOG_CGI_W() << "Chunked body size " << (_body.size() + _chunk_size)
+							<< " exceeds max_body_size" << _max_body_size;
+				_body_too_large = true;
+				_parse_state = PARSE_ERROR;
+				return false;
+			}
 
 			_body.append(_raw_buf, 0, _chunk_size);
 			_raw_buf.erase(0, _chunk_size);
@@ -315,7 +347,7 @@ void    Request::print() const
 
 	if (!_body.empty())
     {
-        const size_t max_body_log_len = 500; 
+        const size_t max_body_log_len = 500;
         if (_body.length() <= max_body_log_len)
         {
             LOG_REQUEST_D() << "Body    : " << _body;
