@@ -2,7 +2,7 @@
 import os
 import sys
 
-# CGI 必须先输出 HTTP 头
+# CGI must send HTTP headers before the response body.
 print("Content-Type: text/html\r")
 print("\r")
 
@@ -27,7 +27,7 @@ print("""<!DOCTYPE html>
 <h2>CGI Environment Variables</h2>
 """)
 
-# 标准 CGI 环境变量分组
+# Standard CGI environment variable group.
 CGI_VARS = [
     "REQUEST_METHOD",
     "REQUEST_URI",
@@ -60,18 +60,18 @@ CGI_VARS = [
 ]
 
 def row(key, val):
-    val = val if val != "" else "<em style='color:#555'>（空）</em>"
+    val = val if val != "" else "<em style='color:#555'>(empty)</em>"
     print(f'<tr><td class="key">{key}</td><td class="val">{val}</td></tr>')
 
-# ── 1. 标准 CGI 变量 ──────────────────────────────────────
+# 1. Standard CGI variables.
 print('<div class="section">')
 print('<h3 style="color:#dcdcaa">Standard CGI Variables</h3>')
 print('<table><tr><th>Variable</th><th>Value</th></tr>')
 for key in CGI_VARS:
-    row(key, os.environ.get(key, "<em style='color:#555'>（未设置）</em>"))
+    row(key, os.environ.get(key, "<em style='color:#555'>(not set)</em>"))
 print('</table></div>')
 
-# ── 2. 其余所有环境变量 ───────────────────────────────────
+# 2. All other environment variables.
 extra = {k: v for k, v in os.environ.items() if k not in CGI_VARS}
 print('<div class="section">')
 print('<h3 style="color:#dcdcaa">Other Environment Variables</h3>')
@@ -80,7 +80,7 @@ for key in sorted(extra.keys()):
     row(key, extra[key])
 print('</table></div>')
 
-# ── 3. Request Body (若有) ────────────────────────────────
+# 3. Request body, if present.
 print('<div class="section">')
 print('<h3 style="color:#dcdcaa">Request Body</h3>')
 content_length = int(os.environ.get("CONTENT_LENGTH") or 0)
@@ -88,7 +88,7 @@ if content_length > 0:
     body = sys.stdin.buffer.read(content_length)
     print(f'<pre style="background:#2d2d2d;padding:12px;border-radius:4px;">{body.decode("utf-8", errors="replace")}</pre>')
 else:
-    print('<p style="color:#555">（无 body）</p>')
+    print('<p style="color:#555">(no body)</p>')
 print('</div>')
 
 print("</body></html>")

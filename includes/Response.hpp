@@ -20,6 +20,8 @@ public:
 	void	build_delete_ok();
 	void	build_autoindex(const std::string& uri, const std::string& html_body);
 
+	static void	inject_header(std::string& raw, const std::string& key, const std::string&);
+
 	const std::string&	get_raw() 		const { return _raw; }
 	const std::string&	get_file_path() const { return _file_path; }
 	size_t				get_file_size() const { return _file_size; }

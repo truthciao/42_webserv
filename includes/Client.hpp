@@ -4,6 +4,7 @@
 #include "CgiSession.hpp"
 #include "Response.hpp"
 #include "Config.hpp"
+#include "Session.hpp"
 
 #include <string>
 #include <deque>
@@ -93,6 +94,9 @@ private:
 	void	_handle_delete(const LocationConfig& loc);
 	void	_handle_autoindex(const std::string& uri, const LocationConfig& loc);
 
+	void	_resolve_session();
+
+	std::string			_session_id;
 	int					_fd;
 	ClientState			_state;
 	const ServerConfig*	_server_config;

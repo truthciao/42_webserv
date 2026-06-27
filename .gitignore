@@ -10,3 +10,4 @@ txt*
 *.txt
 test*
 www/first/upload/
+www/cgi-bin/__pycache__

@@ -1,132 +1,349 @@
-		case 200: return "OK";
-		case 201: return "Created";
-		case 204: return "No Content";
-		case 301: return "Moved Permanently";
-		case 400: return "Bad Request";
-		case 403: return "Forbidden";
-		case 404: return "Not Found";
-		case 405: return "Method Not Allowed";
-		case 415: return "Unsupported Media Type";
-		case 500: return "Internal Server Error";
+*This project has been created as part of the 42 curriculum by yshi, hanwang.*
 
+# Webserv
+
+## Description
+
+Webserv is a C++98 HTTP server developed for the 42 curriculum. The goal of the
+project is to understand how a web server works internally by implementing the
+core parts ourselves: socket setup, non-blocking I/O, request parsing, response
+generation, routing, file serving, uploads, CGI execution, and configuration
+parsing.
+
+The server reads an nginx-inspired configuration file, opens one or more
+listening sockets, accepts HTTP clients, parses HTTP/1.1 requests, and sends
+responses from static files, generated directory listings, uploaded content, or
+CGI scripts.
+
+## Implemented Features
+
+- HTTP/1.1 request parsing with request line, headers, and body handling.
+- Support for `GET`, `POST`, and `DELETE` depending on location configuration.
+- Static file serving with configurable `root` and `index`.
+- Custom error pages.
+- Client body size limits.
+- Chunked transfer decoding.
+- `multipart/form-data` upload parsing.
+- Upload storage for configured locations.
+- Directory listing through `autoindex`.
+- HTTP redirections.
+- CGI support for configured extensions, for example Python and PHP scripts.
+- Multiple `server` blocks and multiple listening ports.
+- Non-blocking event handling with `poll`.
+
+## Instructions
+
+### Compilation
+
+Build the project from the repository root:
+
+```sh
+make
+```
+
+Useful Makefile targets:
+
+```sh
+make clean
+make fclean
+make re
+make valgrind
+```
+
+The project is compiled with:
+
+```sh
+c++ -Wall -Wextra -Werror -std=c++98
+```
+
+### Execution
+
+Run with the default configuration:
+
+```sh
+./webserv
+```
+
+This is equivalent to:
+
+```sh
+./webserv config/default.conf
+```
+
+Run with another configuration file:
+
+```sh
+./webserv path/to/config.conf
+```
+
+Stop the server with `Ctrl-C`.
+
+### Default Configuration
+
+The default configuration listens on:
+
+- `localhost:8080`
+- `localhost:8081`
+
+Some useful routes from `config/default.conf`:
+
+- `GET /` serves `www/first/index.html`.
+- `GET /listing/` shows an autoindex directory listing.
+- `GET`, `POST`, `DELETE /upload/` tests upload and deletion behavior.
+- `GET /old-site/` redirects to `/new-site/index.html`.
+- `GET`, `POST /cgi-bin/` executes configured CGI scripts.
+
+Example requests:
+
+```sh
+curl -i http://localhost:8080/
+curl -i http://localhost:8080/listing/
+curl -i -X POST -d "key=value" http://localhost:8080/
+curl -i http://localhost:8080/cgi-bin/hello.py
+```
+
+Upload example:
+
+```sh
+curl -i -F "file=@README.md" http://localhost:8080/upload/
+```
+
+Delete example:
+
+```sh
+curl -i -X DELETE http://localhost:8080/upload/README.md
+```
+
+Generate a random file for upload or body-size tests:
+
+```sh
+dd if=/dev/urandom of=www/bigfile.bin bs=1M count=10
+```
+
+Chunked request example:
+
+```sh
+curl -i -X POST -H "Transfer-Encoding: chunked" -d @www/bigfile.bin http://localhost:8080/
+```
+
+## Configuration Overview
+
+Configuration files use an nginx-like syntax:
+
+```nginx
+server {
+    listen 8080;
+    server_name localhost;
+    client_max_body_size 10485760;
+
+    error_page 404 /www/error_pages/404.html;
+
+    cgi .py /usr/bin/python3;
+    cgi .php /usr/bin/php-cgi;
+
+    location / {
+        allow_methods GET POST;
+        root www/first;
+        index index.html;
+    }
+
+    location /upload/ {
+        allow_methods GET POST DELETE;
+        root www/first/upload;
+        autoindex on;
+        upload_enable on;
+        upload_store www/first/upload;
+    }
+}
+```
+
+Main directives used by this project:
+
+- `listen`: port or host:port to bind.
+- `server_name`: accepted host names.
+- `client_max_body_size`: maximum request body size in bytes.
+- `error_page`: custom file for an HTTP error status.
+- `cgi`: maps a file extension to a CGI executable.
+- `location`: route-specific configuration block.
+- `allow_methods`: allowed HTTP methods for a location.
+- `root`: filesystem directory used by the location.
+- `index`: default file served for a directory.
+- `autoindex`: enables or disables generated directory listing.
+- `return`: redirects to another URL.
+- `upload_enable`: enables upload handling.
+- `upload_store`: directory where uploaded files are saved.
+
+## Developer Notes
+
+This section preserves protocol notes that are useful while working on the
+server.
+
+### Common HTTP Status Messages
+
+```cpp
+case 200: return "OK";
+case 201: return "Created";
+case 204: return "No Content";
+case 301: return "Moved Permanently";
+case 302: return "Found";
+case 400: return "Bad Request";
+case 403: return "Forbidden";
+case 404: return "Not Found";
+case 405: return "Method Not Allowed";
+case 413: return "Request Entity Too Large";
+case 415: return "Unsupported Media Type";
+case 500: return "Internal Server Error";
+```
+
+### HTTP Message Format
+
+An HTTP message is made of a start line, zero or more headers, an empty line,
+and an optional body:
+
+```text
 HTTP-message = start-line *( header-field CRLF ) CRLF [ message-body ]
-这个公式告诉你，一个报文由：起始行、零个或多个 Header、一个空行 (CRLF)，以及一个可选的 Body 组成。
 request-line = method SP request-target SP HTTP-version CRLF
 header-field = field-name ":" OWS field-value OWS
+```
 
-- Request Line 格式：`METHOD SP URI SP VERSION CRLF`
-    - SP = Space（空格）
-    - CRLF = Carriage Return Line Feed（`\r\n`）
-- Header 格式：`Field-Name: Field-Value CRLF`
+Request line format:
 
+```text
+METHOD SP URI SP VERSION CRLF
+```
 
-- Response 格式：`Status-Line\r\nHeaders\r\n\r\nBody`
-- Status Line：`HTTP/1.1 200 OK\r\n`
-- 必要 Headers：`Content-Type`、`Content-Length`、`Connection`
+Header format:
 
+```text
+Field-Name: Field-Value CRLF
+```
 
-一个分块编码的 HTTP body
+Response format:
 
-	<HTTP Headers>
-	Transfer-Encoding: chunked  <-- 关键的请求头
-	\r\n
+```text
+Status-Line\r\nHeaders\r\n\r\nBody
+```
 
-	5\r\n        <-- 块大小 (十六进制的 5)
-	Hello\r\n     <-- 块数据 (5个字节) + CRLF
+Example status line:
 
-	b\r\n        <-- 块大小 (十六进制的 11)
-	world!\r\n   <-- 块数据 (11个字节) + CRLF
+```text
+HTTP/1.1 200 OK\r\n
+```
 
-	0\r\n        <-- 零长度块，表示结束
-	\r\n        <-- 最后的CRLF
+Important response headers:
 
+- `Content-Type`
+- `Content-Length`
+- `Connection`
 
+### Chunked Transfer Encoding
 
-multipart/form-data 和 boundary
-- `Content-Type: multipart/form-data; boundary=----xxx`
-- boundary 分隔符的作用
-- 每个 part 的结构：headers + 空行 + 内容
-- `Content-Disposition: form-data; name="file"; filename="photo.jpg"`
-- 二进制文件在 body 中是原封不动的字节
+Chunked bodies are announced with:
 
-    --boundary_string\r\n
-    (Part 1 Headers)
-    \r\n
-    (Part 1 Body)
-    \r\n
-    --boundary_string\r\n
-    (Part 2 Headers)
-    ...
-    --boundary_string--\r\n
+```http
+Transfer-Encoding: chunked
+```
 
-    POST /upload HTTP/1.1
-    Host: example.com
-    Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+Example structure:
 
-    ----WebKitFormBoundary7MA4YWxkTrZu0gW
-    Content-Disposition: form-data; name="username"
+```text
+<HTTP Headers>
+Transfer-Encoding: chunked
+\r\n
 
-    johndoe
-    ----WebKitFormBoundary7MA4YWxkTrZu0gW
-    Content-Disposition: form-data; name="file"; filename="photo.jpg"
-    Content-Type: image/jpeg
+5\r\n
+Hello\r\n
 
-    (这里是 photo.jpg 文件的原始二进制数据，一个字节不多，一个字节不少)
-    ...
-    ...
-    ...
-    ----WebKitFormBoundary7MA4YWxkTrZu0gW--
+b\r\n
+hello world\r\n
 
+0\r\n
+\r\n
+```
 
-生成随机大文件
-	dd if=/dev/urandom of=www/bigfile.bin bs=1M count=10
-post 测试
-- 测试：`curl -X POST -d "key=value" localhost:8080`
-- 测试：`curl -X POST -H "Transfer-Encoding: chunked" -d @bigfile localhost:8080`
+Each chunk starts with its size in hexadecimal, followed by `CRLF`, the chunk
+data, another `CRLF`, and finally a zero-sized chunk.
 
+### Multipart Form Data
 
-This project has been created as part of the 42 curriculum by yshi, hanwang.
+File uploads usually use:
 
-webserv/
-├── Makefile
-├── config/
-│   ├── default.conf            # 默认配置文件
-│   └── test.conf               # 测试用配置
-├── www/                         # 测试网站根目录
-│   ├── index.html
-│   ├── style.css
-│   ├── 404.html
-│   ├── uploads/                # 上传文件存放
-│   └── cgi-bin/                # CGI 脚本
-│       ├── hello.py
-│       └── counter.py
-├── includes/                    # 所有头文件
-│   ├── Webserv.hpp             # 全局通用（宏、常量、公共 include）
-│   ├── Server.hpp              # 核心引擎主类
-│   ├── Client.hpp              # 单个连接的状态
-│   ├── EventLoop.hpp           # poll 事件循环
-│   ├── CgiHandler.hpp          # CGI 进程管理
-│   ├── Config.hpp              # 配置数据结构
-│   ├── ConfigParser.hpp        # 配置文件解析器
-│   ├── Request.hpp             # HTTP 请求解析
-│   ├── Response.hpp            # HTTP 响应构造
-│   ├── Router.hpp              # 路由匹配
-│   └── Session.hpp             # Cookie/Session（bonus）
-└── srcs/
-    ├── main.cpp                # 程序入口
-    │
-    ├── core/                   # ===== 人员 A 的领地 =====
-    │   ├── Server.cpp          # socket/bind/listen + 多端口管理
-    │   ├── EventLoop.cpp       # poll 循环 + 事件分发
-    │   ├── Client.cpp          # 连接生命周期 + 读写缓冲区
-    │   └── CgiHandler.cpp      # fork/pipe/execve/超时kill
-    │
-    ├── http/                   # ===== 人员 B 的领地 =====
-    │   ├── Request.cpp         # 请求解析（request line + headers + body）
-    │   ├── Response.cpp        # 响应构造（status + headers + body）
-    │   ├── Router.cpp          # URI → location 匹配 → 决定行为
-    │   └── Session.cpp         # Cookie 解析 + Session 管理（bonus）
-    │
-    └── config/                 # ===== 人员 B 的领地 =====
-        ├── Config.cpp          # 配置数据结构方法
-        └── ConfigParser.cpp    # tokenize + parse 配置文件
+```http
+Content-Type: multipart/form-data; boundary=----xxx
+```
+
+The boundary separates each part of the body. Each part contains its own headers,
+an empty line, and then the part content. For file uploads, the body bytes must
+be preserved exactly.
+
+Typical part header:
+
+```http
+Content-Disposition: form-data; name="file"; filename="photo.jpg"
+```
+
+General structure:
+
+```text
+--boundary_string\r\n
+Part 1 Headers
+\r\n
+Part 1 Body
+\r\n
+--boundary_string\r\n
+Part 2 Headers
+\r\n
+Part 2 Body
+\r\n
+--boundary_string--\r\n
+```
+
+Example:
+
+```http
+POST /upload HTTP/1.1
+Host: example.com
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="username"
+
+johndoe
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="photo.jpg"
+Content-Type: image/jpeg
+
+<raw binary bytes of photo.jpg>
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+```
+
+## Resources
+
+Classic references used or useful for this project:
+
+- [RFC 9110: HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110)
+- [RFC 9112: HTTP/1.1](https://www.rfc-editor.org/rfc/rfc9112)
+- [RFC 3875: The Common Gateway Interface, CGI Version 1.1](https://www.rfc-editor.org/rfc/rfc3875)
+- [RFC 7578: Returning Values from Forms: multipart/form-data](https://www.rfc-editor.org/rfc/rfc7578)
+- [MDN Web Docs: HTTP](https://developer.mozilla.org/en-US/docs/Web/HTTP)
+- [MDN Web Docs: HTTP messages](https://developer.mozilla.org/en-US/docs/Web/HTTP/Messages)
+- [MDN Web Docs: Transfer-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Transfer-Encoding)
+- [MDN Web Docs: POST](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/POST)
+- [Beej's Guide to Network Programming](https://beej.us/guide/bgnet/)
+- [Linux manual page: poll(2)](https://man7.org/linux/man-pages/man2/poll.2.html)
+- [nginx Beginner's Guide](https://nginx.org/en/docs/beginners_guide.html)
+- [nginx Configuration File's Structure](https://nginx.org/en/docs/beginners_guide.html#conf_structure)
+
+### AI Usage
+
+AI was used as a support tool for documentation and learning-oriented tasks:
+
+- Organizing the README structure to match the required 42 format.
+- Translating and integrating personal HTTP notes into English.
+- Summarizing protocol concepts such as HTTP message format, chunked transfer
+  encoding, and multipart form data.
+- Suggesting manual `curl` commands for testing server behavior.
+
+AI was not used as an authority for final project validation. The implementation,
+configuration choices, tests, and corrections remain the responsibility of the
+project authors.

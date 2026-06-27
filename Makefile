@@ -18,7 +18,6 @@ INC_DIR		= includes
 SRCS_FILES	= main.cpp \
 			  core/Server.cpp \
 			  core/Client.cpp \
-			  core/Logger.cpp \
 			  core/CgiHandler.cpp \
 			  core/CgiSession.cpp \
 			  http/Request.cpp \
@@ -27,8 +26,11 @@ SRCS_FILES	= main.cpp \
 			  http/Autoindex.cpp \
 			  http/MultipartParser.cpp \
 			  http/CgiEnvBuilder.cpp \
+			  http/Session.cpp \
 			  config/Config.cpp \
-			  config/ConfigParser.cpp
+			  config/ConfigParser.cpp \
+			  util/Logger.cpp \
+			  util/Utilizer.cpp
 
 # Prepend directory paths to source files
 SRCS		= $(addprefix $(SRC_DIR)/, $(SRCS_FILES))

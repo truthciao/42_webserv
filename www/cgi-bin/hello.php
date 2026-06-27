@@ -3,7 +3,7 @@
 $method = getenv("REQUEST_METHOD") ?: "GET";
 $query  = getenv("QUERY_STRING") ?: "";
 
-// 读取 POST body
+// Read the POST body.
 $body = "";
 if ($method === "POST") {
     $body = file_get_contents("php://stdin");

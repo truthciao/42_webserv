@@ -58,7 +58,7 @@ bool	Client::read_from_socket()
 		}
 		else if (bytes_read == 0)
 		{
-			LOG_CLIENT_I() << "[-] Client fd=" << _fd << " closed connection during read";
+			LOG_CLIENT_I() << "Client fd=" << _fd << " closed connection during read";
 			_state = CLOSING;
 			return false;
 		}
@@ -66,7 +66,7 @@ bool	Client::read_from_socket()
 		{
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				break;
-			LOG_CLIENT_E() << "[-] Read error on fd=" << _fd << ": " << strerror(errno);
+			LOG_CLIENT_E() << "Read error on fd=" << _fd << ": " << strerror(errno);
 			_state = CLOSING;
 			return false;
 		}
@@ -91,7 +91,7 @@ void	Client::_process_data(const char* data, size_t len)
 			}
 			else
 			{
-				LOG_CLIENT_E() << "[-] Parse error on fd=" << _fd;
+				LOG_CLIENT_E() << "Parse error on fd=" << _fd;
 				_state = CLOSING;
 			}
 			return ;
@@ -122,6 +122,8 @@ void	Client::_process_data(const char* data, size_t len)
 void	Client::prepare_reponse()
 {
 	_request.print();
+
+	_resolve_session();
 
 	LocationConfig	matched_loc;
 	bool	has_location = Router::match(*_server_config, _request.get_uri(), matched_loc);
@@ -313,8 +315,18 @@ void Client::_deliver_cgi_result()
 
 void	Client::_enqueue_raw_response(const std::string& raw, bool is_file)
 {
+	std::string str = raw;
+	if (!_session_id.empty())
+	{
+		Response::inject_header(str,
+								"Set-Cookie",
+								"session_id=" + _session_id + "; Path=/; HttpOnly");
+	}
+
+	LOG_RESPONSE_D() << str.substr(0, 600) << "... [truncated, total size: " << raw.length() << " bytes]";
+
 	PendingResponse* pr = new PendingResponse();
-	pr->write_buf		= raw;
+	pr->write_buf		= str;
 	pr->write_offset	= 0;
 	pr->is_file			= is_file;
 	pr->write_stage		= WRITE_HEADER;
@@ -722,4 +734,33 @@ void	Client::_handle_autoindex(const std::string& uri, const LocationConfig& loc
 	_response.build_autoindex(path, html);
 	_enqueue_raw_response(_response.get_raw());
 	_state = WRITING;
+}
+
+void	Client::_resolve_session()
+{
+	_session_id.clear();
+
+	const std::map<std::string, std::string>& headers = _request.get_headers();
+	std::map<std::string, std::string>::const_iterator it = headers.find("cookie");
+
+	std::string	cookie_header;
+	if (it != headers.end())
+		cookie_header = it->second;
+
+	SessionStore& store = SessionStore::instance();
+
+	store.purge_expired();
+
+	SessionData* sd = store.search(cookie_header);
+	if (sd != NULL)
+	{
+		LOG_CLIENT_D() << "Session found: " << sd->session_id
+					   << " (visit count will be managed by CGI)";
+		return;
+	}
+
+	sd = store.create();
+	_session_id = sd->session_id;
+	LOG_CLIENT_I() << "New session assigned to fd=" << _fd
+				   << " sid=" << _session_id;
 }

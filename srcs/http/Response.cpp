@@ -336,3 +336,13 @@ void	Response::build_autoindex(const std::string& uri, const std::string& html_b
 
 	LOG_RESPONSE_D() << "Autoindex page generated, size=" << _body.size();
 }
+
+void	Response::inject_header(std::string& raw, const std::string& key, const std::string& value)
+{
+	size_t	pos = raw.find("\r\n");
+	if (pos == std::string::npos)
+		return;
+
+	std::string new_head_line = key + ": " + value + "\r\n";
+	raw.insert(pos + 2, new_head_line);
+}
