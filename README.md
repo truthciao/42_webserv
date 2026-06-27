@@ -75,8 +75,20 @@ Run with another configuration file:
 ```sh
 ./webserv path/to/config.conf
 ```
-
 Stop the server with `Ctrl-C`.
+
+### Test
+
+```sh
+siege -b -c 10 -t 10S http://127.0.0.1:8080/
+
+siege -b -c 50 -t 30S http://127.0.0.1:8080/
+
+siege -b -c 100 -t 30S http://127.0.0.1:8080/index.html
+
+siege -b -c 25 -t 30S http://127.0.0.1:8080/cgi-bin/test.py
+
+```
 
 ### Default Configuration
 
