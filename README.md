@@ -90,6 +90,11 @@ siege -b -c 100 -t 30S http://127.0.0.1:8080/empty.html
 siege -b -c 25 -t 30S http://127.0.0.1:8080/cgi-bin/hello.py
 
 ```
+```sh
+ps aux | grep zombie
+
+watch -n1 'ps aux | grep Z'
+```
 
 ### Default Configuration
 
