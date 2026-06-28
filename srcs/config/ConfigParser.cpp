@@ -78,7 +78,7 @@ void ConfigParser::_tokenize(const std::string& content) {
 ServerConfig ConfigParser::_parseServer()
 {
 	ServerConfig server;
-	LOG_CONFIG_D() << "Entering _parseServer() block...";
+	// LOG_CONFIG_D() << "Entering _parseServer() block...";
 
 	_expect("{");
 
@@ -223,7 +223,7 @@ ServerConfig ConfigParser::_parseServer()
 		}
 
 		else if (directive == "location") {
-			LOG_CONFIG_D() << "Entering _parseLocation() block...";
+			// LOG_CONFIG_D() << "Entering _parseLocation() block...";
 
 			server.locations.push_back(_parseLocation(server));
 

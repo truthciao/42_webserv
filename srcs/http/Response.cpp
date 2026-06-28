@@ -103,14 +103,15 @@ bool	Response::build(	const std::string& method,
 
 		if (location.autoindex)
 			_autoindex_needed = true;
-
+			
 		std:: string index_path = fs_path + (location.index.empty() ? "index.html" : location.index);
 		if (file_exists(index_path))
 			fs_path = index_path;
 		else
 		{
-			_autoindex_needed = true;
-			return false;
+			build_error(server, 404);
+			LOG_RESPONSE_W() << fs_path << " : directory can't be accessed: 404";
+			return true;
 		}
 	}
 
