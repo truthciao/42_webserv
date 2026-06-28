@@ -135,13 +135,13 @@ curl -i -X DELETE http://localhost:8080/upload/README.md
 Generate a random file for upload or body-size tests:
 
 ```sh
-dd if=/dev/urandom of=www/bigfile.bin bs=1M count=10
+dd if=/dev/urandom of=bigfile.bin bs=1M count=10
 ```
 
 Chunked request example:
 
 ```sh
-curl -i -X POST -H "Transfer-Encoding: chunked" -d @www/bigfile.bin http://localhost:8080/
+curl -i -X POST -H "Transfer-Encoding: chunked" -d @bigfile.bin http://localhost:8080/
 ```
 
 ## Configuration Overview

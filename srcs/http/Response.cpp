@@ -109,9 +109,12 @@ bool	Response::build(	const std::string& method,
 			fs_path = index_path;
 		else
 		{
-			build_error(server, 404);
-			LOG_RESPONSE_W() << fs_path << " : directory can't be accessed: 404";
-			return true;
+			if (!location.autoindex)
+			{
+				build_error(server, 404);
+				LOG_RESPONSE_W() << fs_path << " : directory can't be accessed: 404";
+				return true;
+			}
 		}
 	}
 
@@ -127,9 +130,13 @@ bool	Response::build(	const std::string& method,
 	}
 	else
 	{
-		build_error(server, 404);
-		LOG_RESPONSE_W() << fs_path << " : file doesn't exit: 404";
-		return true;
+		if (!location.autoindex)
+		{
+			build_error(server, 404);
+			LOG_RESPONSE_W() << fs_path << " : file doesn't exist: 404";
+			return true;
+		}
+		return false;
 	}
 }
 

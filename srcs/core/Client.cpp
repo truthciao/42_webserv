@@ -77,7 +77,13 @@ bool	Client::read_from_socket()
 void	Client::_process_data(const char* data, size_t len)
 {
 	_request.feed(data, len, *_server_config);
-
+	if(_request.has_error() && !_request.is_body_too_large())
+	{
+		bool is_file = _response.build_error(*_server_config, 400);
+		_enqueue_raw_response(_response.get_raw(), is_file);	
+		_state = WRITING;	
+	}
+	
 	while(true)
 	{
 		if (_request.has_error())

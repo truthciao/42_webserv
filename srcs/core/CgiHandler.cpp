@@ -176,7 +176,7 @@ bool	CgiHandler::start(	const std::string& script_name,
 		char** argv = build_argv(interpreter, script_name);
 		char** envp = build_envp(env_vars);
 
-		// LOG_CGI_D() << "Before execve: Scrip name =" << argv[1] << ", interpreter=" << interpreter<< ", changed path to cwd=" << cwd;
+		// LOG_CGI_W() << "Before execve: Scrip name =" << argv[1] << ", interpreter=" << interpreter<< ", changed path to cwd=" << cwd;
 
 		execve(argv[0], argv, envp);
 
@@ -315,18 +315,31 @@ void	CgiHandler::check_child_status()
 	pid_t	ret = waitpid(_pid, &status, WNOHANG);
 	if (ret == _pid)
 	{
-		if (_stdout_done)
+		if (WIFEXITED(status))
 		{
-			_state = CGI_DONE;
-			LOG_CGI_D() << "pid=" << _pid << " exited normally, status=" << status;
+			int exit_code = WEXITSTATUS(status);
+			if (exit_code != 0)
+			{
+				_state = CGI_ERROR;
+				LOG_CGI_D() << "pid=" << _pid << " exited abnormally, exit_code=" << exit_code;
+				return;
+			}
+
+			if (_stdout_done)
+			{
+				_state = CGI_DONE;
+				LOG_CGI_D() << "pid=" << _pid << " exited normally, status=" << status;
+			}
+			else
+			{
+				// _state = CGI_ERROR;
+				LOG_CGI_W() << "pid=" << _pid << " exited but stdout not done, status=" << status;
+			}
 		}
-		else
-		{
-			// _state = CGI_ERROR;
-        	LOG_CGI_W() << "pid=" << _pid << " exited but stdout not done, status=" << status;
-		}
+
 	}
 }
+
 void	CgiHandler::kill_child()
 {
 	if (_pid > 0)

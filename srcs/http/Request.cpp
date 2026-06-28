@@ -69,6 +69,7 @@ bool	Request::feed(const char* data, size_t len, const ServerConfig& server)
 				if (!parse_request_line(line))
 				{
 					_parse_state = PARSE_ERROR;
+					LOG_REQUEST_E() << "Parse request line error!";
 					return false;
 				}
 				_parse_state = PARSE_HEADERS;
@@ -123,6 +124,7 @@ bool	Request::feed(const char* data, size_t len, const ServerConfig& server)
 				else if (!parse_header_line(line))
 				{
 					_parse_state = PARSE_ERROR;
+					LOG_REQUEST_E() << "Parse header line error!";					
 					return false;
 				}
 			}
