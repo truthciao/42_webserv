@@ -84,6 +84,8 @@ void	Client::_process_data(const char* data, size_t len)
 		{
 			if (_request.is_body_too_large())
 			{
+				if (_state == WRITING || _state == CLOSING)
+					return;
 				LOG_CLIENT_W() << "Request body too large on fd=" << _fd << ": 413";
 				bool is_file = _response.build_error(*_server_config, 413);
 				_enqueue_raw_response(_response.get_raw(), is_file);
